@@ -22,5 +22,7 @@ extern void eth_init(void);
 extern osStatus eth_open(ETH_OPEN *p_par);
 extern osStatus eth_send(uint8_t *p_data, uint32_t size);
 
+void eth_set_cmd(void);
+
 #endif /* SRC_PERI_ETH_H_ */
  

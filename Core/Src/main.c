@@ -76,10 +76,12 @@ static const INIT_FUNC init_func[] = {
 	eth_init,
 	// drv
 	usart_drv_init,
+	eth_test_init,
 	// app
 	console_init,
 };
 static const CMD_FUNC cmd_func[] = {
+	eth_set_cmd,
 	eth_test_set_cmd,
 };
 /* USER CODE END PV */

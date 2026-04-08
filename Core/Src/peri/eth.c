@@ -14,14 +14,19 @@
 #include "eth.h"
 
 // マクロ
-#define DATA_BUFF_SIZE_MAX		(1504)
+#define DATA_BUFF_SIZE_MAX		(1536)
 #define BUFF_SISE_K				(64)
 #define PHY_ADDRESS				(0)
-#define TX_DISCRIPTOR_NUM		(6)
+#define TX_DISCRIPTOR_NUM		(8)
+#define RX_DISCRIPTOR_NUM		(1)
+#define RETRY_MAX				(10)
+
 
 // 機能マクロ
 #define MMC_ENABLE
-#define LOOPBACK_TEST_ENABLE
+//#define LOOPBACK_TEST_ENABLE
+#define WAKEUP_ENABLE
+#define PTP_ENABLE
 
 // 状態定義
 #define ST_INIT		(0)		// 初期状態
@@ -33,6 +38,7 @@
 #define EVT_SEND_SUCCESS	(1UL << 0)
 #define EVT_RECV_SUCCESS	(1UL << 1)
 #define EVT_SEND_FAIL		(1UL << 2)
+#define EVT_RECV_FAIL		(1UL << 3)
 
 // 送信ディスクリプタ
 #define TDES0_OWN		(1 << 31)
@@ -62,6 +68,33 @@
 #define TDES0_DB		(1 << 0)
 #define TDES1_TBS1(v)	(((v) & 0x0FFF) << 0)
 #define TDES1_TBS2(v)	(((v) & 0x0FFF) << 16)
+
+// 受信ディスクリプタ
+#define RDES0_OWN		(1 << 31)
+#define RDES0_AFM		(1 << 30)
+#define RDES0_FL(v)		(((v) & 0x3FFF) << 16)
+#define RDES0_ES		(1 << 15)
+#define RDES0_DE		(1 << 14)
+#define RDES0_SAF		(1 << 13)
+#define RDES0_LE		(1 << 12)
+#define RDES0_OE		(1 << 11)
+#define RDES0_VLAN		(1 << 10)
+#define RDES0_FS		(1 << 9)
+#define RDES0_LS		(1 << 8)
+#define RDES0_IPHCE_TSV	(1 << 7)
+#define RDES0_LCO		(1 << 6)
+#define RDES0_FT		(1 << 5)
+#define RDES0_RWT		(1 << 4)
+#define RDES0_RE		(1 << 3)
+#define RDES0_DBE		(1 << 2)
+#define RDES0_CE		(1 << 1)
+#define RDES0_PCE_ESA	(1 << 0)
+#define RDES1_DIC		(1 << 31)
+#define RDES1_RBS2(v)	(((v) & 0x1FFF) << 16)
+#define RDES1_PER		(1 << 15)
+#define RDES1_RCH		(1 << 14)
+#define RDES1_RBS(v)	(((v) & 0x1FFF) << 0)
+#define GET_RDES0_FL(v)	(((v) & (0x3FFF << 16)) >> 16)
 
 // PHYレジスタ
 #define PHY_REG_BASIC_CONTROL										(0)
@@ -215,7 +248,8 @@ typedef enum {
 typedef struct {
 	uint32_t		status;			// 状態
 	osMailQId		mail_handle;	// メールハンドル
-	osThreadId		thread_id;		// タスクID
+	osThreadId		snd_thread_id;	// タスクID
+	osThreadId		rcv_thread_id;	// タスクID
 } ETH_CB;
 static ETH_CB eth_cb;
 #define get_myself() (&eth_cb)
@@ -236,7 +270,7 @@ static const CH_INFO ch_info_tbl = {
 
 // MACアドレス
 static const uint8_t mac_address[6] = {
-	0x02, 0x00, 0x00, 0x00, 0x00, 0x01
+	0x00, 0x11, 0x22, 0x33, 0x44, 0x55
 };
 
 // MMDレジスタ情報
@@ -269,7 +303,17 @@ static const MMD_INFO mmd_info_tbl[] = {
 typedef struct {
 	uint32_t TDES[4];
 } TX_DESCRIPTOR;
+typedef struct {
+	uint32_t RDES[4];
+} RX_DESCRIPTOR;
 static TX_DESCRIPTOR tx_descriptor[TX_DISCRIPTOR_NUM] __ALIGNED(32);
+static RX_DESCRIPTOR rx_descriptor[RX_DISCRIPTOR_NUM] __ALIGNED(32);
+
+// インデックス計算マクロ
+#define INC_DESC_IDX(num,cur_idx) ((cur_idx + 1) & num)
+
+// 受信バッファ
+static uint8_t rx_buff[RX_DISCRIPTOR_NUM][DATA_BUFF_SIZE_MAX] __ALIGNED(32);
 
 // 割り込みハンドラ
 void ETH_IRQHandler(void)
@@ -279,6 +323,7 @@ void ETH_IRQHandler(void)
 	uint16_t macsr;
 	uint32_t dmasr;
 	uint32_t dmaier;
+	uint32_t exti_pr;
 	
 	// レジスタのベースアドレスを取得
 	p_reg = ch_info_tbl.p_reg;
@@ -287,28 +332,33 @@ void ETH_IRQHandler(void)
 	macsr = p_reg->MACSR;
 	dmasr = p_reg->DMASR;
 	dmaier = p_reg->DMAIER;
+	exti_pr = EXTI->PR;
 	
 	// エラー確認
 	if ((dmasr & ETH_DMASR_EBS) != 0) {
 		// イベント送信
-		osSignalSet(this->thread_id, EVT_SEND_FAIL);
+		osSignalSet(this->snd_thread_id, EVT_SEND_FAIL);
 		return;
 	}
 	
 	// 受信完了
 	if (((dmaier & ETH_DMAIER_RIE) != 0) && ((dmasr & ETH_DMASR_RS) != 0)) {
+		// フラグクリア
+		p_reg->DMASR |= (ETH_DMASR_NIS | ETH_DMASR_RS);
 		// イベント送信
-		osSignalSet(this->thread_id, EVT_RECV_SUCCESS);
+		osSignalSet(this->rcv_thread_id, EVT_RECV_SUCCESS);
 		
 	// 送信完了
 	} else if (((dmaier & ETH_DMAIER_TIE) != 0) && ((dmasr & ETH_DMASR_TS) != 0)) {
+		// フラグクリア
+		p_reg->DMASR |= (ETH_DMASR_NIS | ETH_DMASR_TS | ETH_DMASR_TBUS);
 		// イベント送信
-		osSignalSet(this->thread_id, EVT_SEND_SUCCESS);
+		osSignalSet(this->snd_thread_id, EVT_SEND_SUCCESS);
 		
-	// その他
-	} else {
-		;
-		
+	// WakeUp
+	} else if ((exti_pr & ETH_WAKEUP_EXTI_LINE) != 0) {
+	    /* Clear ETH WAKEUP Exti pending bit */
+	    __HAL_ETH_WAKEUP_EXTI_CLEAR_FLAG(ETH_WAKEUP_EXTI_LINE);
 	}
 }
 
@@ -317,7 +367,8 @@ void ETH_IRQHandler(void)
   */
 void ETH_WKUP_IRQHandler(void)
 {
-	
+    /* Clear ETH WAKEUP Exti pending bit */
+    __HAL_ETH_WAKEUP_EXTI_CLEAR_FLAG(ETH_WAKEUP_EXTI_LINE);
 }
 
 // DMAリセット
@@ -338,7 +389,7 @@ static void dma_reset(ETH_TypeDef *p_reg)
 // レジスタ設定
 static void eth_config(ETH_TypeDef *p_reg)
 {
-	uint32_t loopback_setting;
+	uint32_t loopback_setting = 0;
 	volatile uint32_t tmp_reg;
 	
 	// クロック有効
@@ -351,8 +402,9 @@ static void eth_config(ETH_TypeDef *p_reg)
 	// DMAリセット
 	dma_reset(p_reg);
 	
-	// 送信ディスクリプタのアドレスを設定
+	// ディスクリプタのアドレスを設定
 	p_reg->DMATDLAR = (uint32_t)&(tx_descriptor[0]);
+	p_reg->DMARDLAR = (uint32_t)&(rx_descriptor[0]);
 	
 	// DMA設定
 	// Tx FIFO : 256 bytes
@@ -366,7 +418,7 @@ static void eth_config(ETH_TypeDef *p_reg)
 	// ループバック設定
 #ifdef LOOPBACK_TEST_ENABLE
 	// ROD(1)  : Receive own 有効 → 
-	loopback_setting = ETH_MACCR_ROD | ETH_MACCR_LM;
+	loopback_setting = ETH_MACCR_LM;
 #endif
 	
 	// レジスタ設定
@@ -375,7 +427,10 @@ static void eth_config(ETH_TypeDef *p_reg)
 	// JD(0)   : Jabber 有効 → 2048byte以上送信しようとすると
 	// IPCO(1) : - IPヘッダー、TCP/UDPチェックサムを自動検証
 	// APCS(1) : - パディング領域とFCSを自動的に除去
-	p_reg->MACCR = ETH_MACCR_CSTF | ETH_MACCR_IPCO | ETH_MACCR_APCS;
+	//p_reg->MACCR = ETH_MACCR_CSTF | ETH_MACCR_DM | ETH_MACCR_IPCO | ETH_MACCR_APCS | loopback_setting;
+	p_reg->MACCR = ETH_MACCR_FES | ETH_MACCR_DM | ETH_MACCR_IPCO | ETH_MACCR_APCS | loopback_setting;
+	//p_reg->MACCR = ETH_MACCR_DM | ETH_MACCR_IPCO | ETH_MACCR_APCS | loopback_setting;
+	// ※ ETH_MACCR_FESを設定することでちゃんと送受信できるようになった
 	
 	// フィルタレジスタ設定
 	// HPF(0)  : MACアドレスレジスタと完全一致する場合のみ受信※1の場合は、ハッシュ
@@ -406,6 +461,7 @@ static void eth_config(ETH_TypeDef *p_reg)
 	// ウェイクアップはいったん使わない
 	p_reg->MACRWUFFR = 0;
 	p_reg->MACPMTCSR = 0;
+	//p_reg->MACPMTCSR |= (ETH_MACPMTCSR_WFE | ETH_MACPMTCSR_MPE);
 	
 	// マックアドレス設定
 	p_reg->MACA0HR = (((uint32_t)mac_address[5] << 8) | ((uint32_t)mac_address[4] << 0));
@@ -423,6 +479,14 @@ static void eth_config(ETH_TypeDef *p_reg)
 	p_reg->MMCTIR |= (ETH_MMCTIR_TGFS | ETH_MMCTIR_TGFMSCS | ETH_MMCTIR_TGFSCS);
 	
 #endif
+
+#ifdef PTP_ENABLE
+	// 割り込みをマスク
+	p_reg->MACIMR |= ETH_MACIMR_TSTIM;
+	
+	// タイムスタンプ機能を有効化
+	p_reg->PTPTSCR |= 
+	
 	
 	// タイムスタンプ機能は有効
 	//  TSPFFMAE(1)  : 受信フレームの宛先MACアドレスが一致する場合にタイムスタンプを生成
@@ -431,36 +495,86 @@ static void eth_config(ETH_TypeDef *p_reg)
 	//  TSSIPV4FE(1) : IPv4パケットに対してのみタイムスタンプスナップショットを取得
 	p_reg->PTPTSCR |= (ETH_PTPTSCR_TSPFFMAE | ETH_PTPTSCR_TSSMRME | ETH_PTPTSCR_TSSEME | ETH_PTPTSCR_TSSIPV4FE | ETH_PTPTSCR_TSE);
 	
+	
+	
+	
+	
+#endif
+	
 	// 割り込み設定
 	p_reg->DMAIER |= (ETH_DMAIER_NISE | ETH_DMAIER_AISE | ETH_DMAIER_RIE | ETH_DMAIER_TIE);
 	
 	// 送受信有効
 	p_reg->MACCR |= (ETH_MACCR_TE | ETH_MACCR_RE);
 	
+	// 送信開始
+	// → これでDMAがディスクリプタのOWNビットポーリングが始まる
+	p_reg->DMAOMR |= ETH_DMAOMR_ST;
+	
+	// 受信開始
+	p_reg->DMARPDR = 0;
+	p_reg->DMAOMR |= ETH_DMAOMR_SR;
+	
+}
+
+// 送信ディスクリプタ設定
+static void tx_desc_config(void)
+{
+	TX_DESCRIPTOR *p_cur_desc;
+	uint8_t i;
+	
+	// 送信ディスクリプタ設定
+	for (i = 0; i < (TX_DISCRIPTOR_NUM - 1); i++) {
+		// ディスクリプタ取得
+		p_cur_desc = &tx_descriptor[i];
+#if 0
+		p_tx_nxt_desc = &tx_descriptor[i + 1];
+		// 次のディスクリプタのアドレスを取得
+		p_tx_cur_desc->TDES[3] = (uint32_t)p_tx_nxt_desc;
+#endif
+		p_cur_desc->TDES[3] = (uint32_t)&tx_descriptor[0];
+	}
+}
+
+// 受信ディスクリプタ設定
+static void rx_desc_config(void)
+{
+	RX_DESCRIPTOR *p_cur_desc;
+	uint8_t i;
+	uint8_t nxt_desc_idx;
+	
+	// 受信ディスクリプタ設定
+	for (i = 0; i < RX_DISCRIPTOR_NUM; i++) {
+		// 次のディスクリプタのインデックスを計算
+		nxt_desc_idx = INC_DESC_IDX(RX_DISCRIPTOR_NUM, i);
+		// ディスクリプタ取得
+		p_cur_desc = &rx_descriptor[i];
+#if 0
+		// 次ディスクリプタ設定
+		p_cur_desc->RDES[3] = &(rx_descriptor[nxt_desc_idx]);
+#endif
+		p_cur_desc->RDES[3] = (uint32_t)&(rx_descriptor[0]);
+		// 各設定
+		p_cur_desc->RDES[0] |= RDES0_OWN;
+		p_cur_desc->RDES[1] |= RDES1_RBS(DATA_BUFF_SIZE_MAX) | RDES1_RCH;
+		p_cur_desc->RDES[1] &= ~RDES1_DIC;
+		p_cur_desc->RDES[2] = (uint32_t)&(rx_buff[i][0]);
+		
+	}
 }
 
 // ディスクリプタ設定
 static void desc_config(void)
 {
-	TX_DESCRIPTOR *p_cur_desc;
-	TX_DESCRIPTOR *p_nxt_desc;
-	uint8_t i;
-	
-	// ディスクリプタ設定
-	for (i = 0; i < (TX_DISCRIPTOR_NUM - 1); i++) {
-		// ディスクリプタ取得
-		p_cur_desc = &tx_descriptor[i];
-		p_nxt_desc = &tx_descriptor[i + 1];
-		// 次のディスクリプタのアドレスを取得
-		p_cur_desc->TDES[3] = (uint32_t)p_nxt_desc;
-	}
+	tx_desc_config();
+	rx_desc_config();
 }
 
 // PHYレジスタ読み出し
 static osStatus phy_read(ETH_TypeDef *p_reg, uint8_t phy_reg, uint16_t *data)
 {
 	osStatus ercd = osErrorTimeoutResource;
-	uint8_t timeout = 10;
+	uint8_t timeout = 1000;
 	
 	// PHYアドレスとリードしたいレジスタのインデックスを設定
 	p_reg->MACMIIAR = MACMIIAR_PA(PHY_ADDRESS) | MACMIIAR_MR(phy_reg);
@@ -489,7 +603,7 @@ static osStatus phy_read(ETH_TypeDef *p_reg, uint8_t phy_reg, uint16_t *data)
 static osStatus phy_write(ETH_TypeDef *p_reg, uint8_t phy_reg, uint16_t data)
 {
 	osStatus ercd = osErrorTimeoutResource;
-	uint8_t timeout = 10;
+	uint8_t timeout = 1000;
 	
 	// 書き込み
 	p_reg->MACMIIDR = data;
@@ -517,7 +631,7 @@ static osStatus mmd_read(ETH_TypeDef *p_reg, uint16_t index, uint16_t *data)
 	
 	// アドレス取得
 	for (i = 0; i < sizeof(mmd_info_tbl)/sizeof(mmd_info_tbl[0]); i++) {
-		if (mmd_info_tbl[0].index == index) {
+		if (mmd_info_tbl[i].index == index) {
 			break;
 		}
 	}
@@ -561,7 +675,7 @@ static osStatus mmd_write(ETH_TypeDef *p_reg, uint16_t index, uint16_t data)
 	
 	// アドレス取得
 	for (i = 0; i < sizeof(mmd_info_tbl)/sizeof(mmd_info_tbl[0]); i++) {
-		if (mmd_info_tbl[0].index == index) {
+		if (mmd_info_tbl[i].index == index) {
 			break;
 		}
 	}
@@ -617,16 +731,8 @@ EXIT:
 // 送信完了待ち
 static osStatus send_wait(ETH_TypeDef *p_reg)
 {
-	TX_DESCRIPTOR *p_desc;
-	osEvent event;
 	osStatus ercd;
-	
-	// 先頭ディスクリプタのOWNビットをセット
-	p_desc = &(tx_descriptor[0]);
-	p_desc->TDES[0] |= TDES0_OWN;
-	
-	// 送信開始
-	p_reg->DMAOMR |= ETH_DMAOMR_ST;
+	osEvent event;
 	
 	// 送信完了まち
 	event = osSignalWait((EVT_SEND_SUCCESS|EVT_SEND_FAIL), osWaitForever);
@@ -644,6 +750,9 @@ static osStatus send_wait(ETH_TypeDef *p_reg)
 		
 	}
 	
+	// 送信停止
+	//p_reg->DMAOMR &= ~ETH_DMAOMR_ST;
+	
 	return ercd;
 }
 
@@ -657,6 +766,10 @@ void eth_init(void)
 	
 	// ディスクリプタクリア
 	memset(&tx_descriptor[0], 0, sizeof(TX_DESCRIPTOR)*TX_DISCRIPTOR_NUM);
+	memset(&rx_descriptor[0], 0, sizeof(RX_DESCRIPTOR)*RX_DISCRIPTOR_NUM);
+	
+	// バッファクリア
+	memset(rx_buff, 0, RX_DISCRIPTOR_NUM*DATA_BUFF_SIZE_MAX);
 	
 	// メールキュー作成 (*) 64*1024byteのメモリを確保
 	osMailQDef(ConsoleSendBuf, BUFF_SISE_K, 1024);
@@ -672,7 +785,6 @@ osStatus eth_open(ETH_OPEN *p_par)
 {
 	ETH_CB *this = get_myself();
 	ETH_TypeDef *p_reg;
-	uint32_t loopback_setting = 0;
 	
 	// パラメータチェック
 	if (p_par == NULL) {
@@ -700,6 +812,7 @@ osStatus eth_open(ETH_OPEN *p_par)
 }
 
 // 送信
+extern void clean_dcache(void *addr, uint32_t size);
 osStatus eth_send(uint8_t *p_data, uint32_t size)
 {
 	ETH_CB *this = get_myself();
@@ -722,7 +835,7 @@ osStatus eth_send(uint8_t *p_data, uint32_t size)
 	}
 	
 	// タスク情報を取得
-	this->thread_id = osThreadGetId();
+	this->snd_thread_id = osThreadGetId();
 	
 	// レジスタのベースアドレスを取得
 	p_reg = ch_info_tbl.p_reg;
@@ -761,7 +874,7 @@ osStatus eth_send(uint8_t *p_data, uint32_t size)
 		p_desc->TDES[0] = tdes0;
 		
 		// フラッシュ
-		SCB_CleanDCache_by_Addr(p_data, send_size);
+		clean_dcache(p_data, send_size);
 		
 		// 次の送信準備
 		descriptor_idx++;
@@ -778,17 +891,294 @@ osStatus eth_send(uint8_t *p_data, uint32_t size)
 			descriptor_idx = 0;
 			
 			
-		// その他
+		// その他(=まだ送信する)
 		} else {
 			continue;
 			
 		}
 		
+		// 送信処理
+		// 先頭ディスクリプタのOWNビットをセット
+		p_desc = &(tx_descriptor[0]);
+		p_desc->TDES[0] |= TDES0_OWN;
+		
+		// ディスクリプタ領域のクリーン
+		clean_dcache(p_desc, sizeof(TX_DESCRIPTOR)*TX_DISCRIPTOR_NUM);
+		
+		// TBUSクリア
+		// STセット⇒OWNセットの流れの場合、STセットしたタイミングでDMAはOWNがセットされているディスクリプタを探しにいく。
+		// ただし、OWNはまだセットされていないため必ずTBUSが立ってしまう
+		p_reg->DMASR = (ETH_DMASR_TBUS | ETH_DMASR_TUS | ETH_DMASR_TPS | ETH_DMASR_AIS | ETH_DMASR_NIS);
+
+		// 再度ディスクリプタチェック要求
+		p_reg->DMATPDR = 0U;
+		
 		// 送信失敗したなら終了
-		if (send_wait(p_reg) != osOK) {
+		if ((ercd = send_wait(p_reg)) != osOK) {
 			break;
 		}
 	}
 	
 	return ercd;
-}	
+}
+
+// 受信
+// p_dataには1518byte以上の配列を渡してね
+osStatus eth_recv(uint8_t *p_data, uint32_t *p_size)
+{
+	ETH_CB *this = get_myself();
+	osStatus ercd;
+	osEvent event;
+	RX_DESCRIPTOR *p_desc;
+	uint16_t size;
+	
+	// パラメータチェック
+	if ((p_data == NULL) || (p_size == NULL)) {
+		return osErrorParameter;
+	}
+	
+	// オープンしていない場合はエラー
+	if (this->status != ST_OPEN) {
+		return osErrorResource;
+	}
+	
+	// タスク情報を取得
+	this->rcv_thread_id = osThreadGetId();
+	
+	// 受信完了まち
+	event = osSignalWait((EVT_RECV_SUCCESS|EVT_RECV_FAIL), osWaitForever);
+	// OSエラー発生
+	if (event.status != osEventSignal) {
+		ercd = event.status;
+		goto EXIT;
+		
+	// 送信成功
+	} else if (event.value.signals == EVT_RECV_SUCCESS) {
+		ercd = osOK;
+		
+	// 送信失敗
+	} else if (event.value.signals == EVT_RECV_FAIL) {
+		ercd = osErrorISR;	// 良いエラーコードがない...
+		goto EXIT;
+		
+	}
+	
+	// 一応フレーム受信できているかチェック
+	p_desc = &rx_descriptor[0];
+	if (((p_desc->RDES[0] & RDES0_FS) == 0) || ((p_desc->RDES[0] & RDES0_LS) == 0)) {
+		ercd = osErrorISR;
+		goto EXIT;
+	}
+	
+	// データコピー
+	size = GET_RDES0_FL(p_desc->RDES[0]);
+	memcpy(p_data, p_desc->RDES[2], size);
+	 *p_size = size;
+	
+EXIT:
+	// ディスクリプタ返却
+	p_desc->RDES[0] &= ~(RDES0_FS | RDES0_LS | RDES0_ES);
+	p_desc->RDES[0] |= RDES0_OWN;
+	
+	return ercd;
+}
+
+// 停止
+osStatus eth_go_down(void)
+{
+	ETH_CB *this = get_myself();
+	osStatus ercd;
+	ETH_TypeDef *p_reg;
+	RX_DESCRIPTOR *p_cur_desc;
+	uint8_t i;
+	uint8_t nxt_desc_idx;
+	uint8_t own_cnt = 0;
+	uint8_t retry_cnt = 0;
+	CH_INFO *p_ch_info = &ch_info_tbl;
+	
+	// オープンしていない場合はエラー
+	if (this->status != ST_OPEN) {
+		return osErrorResource;
+	}
+	
+	// レジスタのベースアドレスを取得
+	p_reg = ch_info_tbl.p_reg;
+	
+	// 送信DMAを無効化
+	p_reg->DMAOMR &= ~ETH_DMAOMR_ST;
+	
+	// 送受信停止
+	p_reg->MACCR &= ~(ETH_MACCR_TE | ETH_MACCR_RE);
+	
+	// 受信FIFOの空確認 (※) 受信FIFOが空になっていることをどうやって判断するかは記載されていなかった
+	//  OWNが1かどうかチェック（OWN=1の場合、DMA所有でFIFOにデータがない状態）
+	while ((own_cnt != RX_DISCRIPTOR_NUM) && (retry_cnt < RETRY_MAX)) {
+		// クリア
+		own_cnt = 0;
+		// 受信ディスクリプタ設定
+		for (i = 0; i < RX_DISCRIPTOR_NUM; i++) {
+			// ディスクリプタ取得
+			p_cur_desc = &rx_descriptor[i];
+			// OWNがセットされている
+			if ((p_cur_desc->RDES[0] & RDES0_OWN) != 0) {
+				own_cnt++;
+			}
+		}
+		// リトライ回数を増やす
+		retry_cnt++;
+	}
+	// リトライ回数やっても駄目だった
+	if (retry_cnt >= RETRY_MAX) {
+		ercd = osEventTimeout;
+		goto EXIT;
+	}
+	
+	// EXTI設定
+	EXTI->IMR  |= EXTI_IMR_IM19;
+	EXTI->EMR  |= EXTI_EMR_MR19;
+	EXTI->RTSR |= EXTI_RTSR_TR19;
+	EXTI->PR    = EXTI_PR_PR19;
+	
+	// 割り込み設定
+    HAL_NVIC_SetPriority(p_ch_info->wakeup_irqn, 5, 0);
+    HAL_NVIC_EnableIRQ(p_ch_info->wakeup_irqn);
+	HAL_NVIC_ClearPendingIRQ(p_ch_info->wakeup_irqn);
+	HAL_NVIC_DisableIRQ(p_ch_info->global_irqn);
+	
+	// 受信有効化
+	p_reg->MACCR |= ETH_MACCR_RE;
+	
+	// Magic Paclet/Wake-on-Lan検出を有効化
+	p_reg->MACPMTCSR |= (ETH_MACPMTCSR_WFE | ETH_MACPMTCSR_MPE | ETH_MACPMTCSR_GU);
+	
+	// パワーダウンモードを有効化
+	p_reg->MACPMTCSR |= ETH_MACPMTCSR_PD;
+	
+	console_printf("EXTI->IMR:0x%x\n", EXTI->IMR);
+	console_printf("EXTI->EMR:0x%x\n", EXTI->EMR);
+	console_printf("EXTI->RTSR:0x%x\n", EXTI->RTSR);
+	console_printf("EXTI->PR:0x%x\n", EXTI->PR);
+	console_printf("MACPMTCSR:0x%x\n", p_reg->MACPMTCSR);
+	
+	osDelay(1000);
+	
+	// SysTickを中断 (※)中断しないと速攻で起きてしまう
+	HAL_SuspendTick();
+	
+	// Stopモード以降
+	//HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFE);
+	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
+	
+	// ★復帰後ここから始まる
+	
+	// クロック再初期化
+	SystemClock_Config();
+	
+	// SysTick再開
+	HAL_ResumeTick();
+	
+	console_printf("wakeup\n");
+	
+	// WakeUpソースをクリア
+	p_reg->MACPMTCSR &= ~(ETH_MACPMTCSR_WFE | ETH_MACPMTCSR_MPE);
+	
+	// パワーダウンモード無効化
+	p_reg->MACPMTCSR &= ~ETH_MACPMTCSR_PD;
+	
+EXIT:
+	return ercd;
+}
+
+// コマンド
+static void mmd_cmd_read(int argc, char *argv[])
+{
+	osStatus ercd;
+	ETH_TypeDef *p_reg;
+	uint16_t idx;
+	uint16_t data;
+	
+	// 引数チェック
+	if (argc < 2) {
+		console_printf("mmd_cmd_read <idx>\n");
+		return;
+	}
+	
+	// 値設定
+	idx = atoi(argv[1]);
+	
+	// レジスタのベースアドレスを取得
+	p_reg = ch_info_tbl.p_reg;
+	
+	// 送信
+	ercd = mmd_read(p_reg, idx, &data);
+	console_printf("ercd:%d, data:%x\n", ercd, data);
+}
+
+// コマンド
+static void mmd_cmd_write(int argc, char *argv[])
+{
+	osStatus ercd;
+	ETH_TypeDef *p_reg;
+	uint16_t idx;
+	uint32_t data;
+	
+	// 引数チェック
+	if (argc < 3) {
+		console_printf("mmd_cmd_write <idx> <data>\n");
+		return;
+	}
+	
+	// 値設定
+	idx = atoi(argv[1]);
+	data = atoi(argv[2]);
+	
+	// レジスタのベースアドレスを取得
+	p_reg = ch_info_tbl.p_reg;
+	
+	// 送信
+	ercd = mmd_write(p_reg, idx, data);
+	console_printf("ercd:%d, data:%x\n", ercd, data);
+}
+
+// コマンド
+static void phy_cmd_read(int argc, char *argv[])
+{
+	osStatus ercd;
+	ETH_TypeDef *p_reg;
+	uint16_t idx;
+	uint16_t data;
+	
+	// 引数チェック
+	if (argc < 2) {
+		console_printf("phy_cmd_read <idx>\n");
+		return;
+	}
+	
+	// 値設定
+	idx = atoi(argv[1]);
+	
+	// レジスタのベースアドレスを取得
+	p_reg = ch_info_tbl.p_reg;
+	
+	// 送信
+	ercd = phy_read(p_reg, idx, &data);
+	console_printf("ercd:%d, data:%x\n", ercd, data);
+}
+
+// コマンド設定関数
+void eth_set_cmd(void)
+{
+	COMMAND_INFO cmd;
+	
+	// コマンドの設定
+	cmd.input = "mmd_cmd_read";
+	cmd.func = mmd_cmd_read;
+	console_set_command(&cmd);
+	cmd.input = "mmd_cmd_write";
+	cmd.func = mmd_cmd_write;
+	console_set_command(&cmd);
+	// コマンドの設定
+	cmd.input = "phy_cmd_read";
+	cmd.func = phy_cmd_read;
+	console_set_command(&cmd);
+}
