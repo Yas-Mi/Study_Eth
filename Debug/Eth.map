@@ -2209,7 +2209,7 @@ Discarded input sections
                 0x00000000        0xc ./Core/Src/middle/microps/netif.o
  .rodata.netif_ch_mapping_tbl
                 0x00000000        0x1 ./Core/Src/middle/microps/netif.o
- .rodata        0x00000000      0x167 ./Core/Src/middle/microps/netif.o
+ .rodata        0x00000000      0x1af ./Core/Src/middle/microps/netif.o
  .text.netif_init
                 0x00000000      0x10c ./Core/Src/middle/microps/netif.o
  .text.netif_set_default_addr
@@ -2220,22 +2220,26 @@ Discarded input sections
                 0x00000000       0x1e ./Core/Src/middle/microps/netif.o
  .text.netif_output
                 0x00000000      0x170 ./Core/Src/middle/microps/netif.o
+ .text.netif_input
+                0x00000000       0xb4 ./Core/Src/middle/microps/netif.o
  .text.netif_print
                 0x00000000       0x84 ./Core/Src/middle/microps/netif.o
+ .rodata.__func__.4
+                0x00000000        0xb ./Core/Src/middle/microps/netif.o
  .rodata.__func__.3
                 0x00000000        0xb ./Core/Src/middle/microps/netif.o
  .rodata.__func__.2
-                0x00000000        0xb ./Core/Src/middle/microps/netif.o
- .rodata.__func__.1
                 0x00000000        0xd ./Core/Src/middle/microps/netif.o
+ .rodata.__func__.1
+                0x00000000        0xc ./Core/Src/middle/microps/netif.o
  .rodata.__func__.0
                 0x00000000        0xc ./Core/Src/middle/microps/netif.o
- .debug_info    0x00000000      0x858 ./Core/Src/middle/microps/netif.o
+ .debug_info    0x00000000      0x93a ./Core/Src/middle/microps/netif.o
  .debug_abbrev  0x00000000      0x225 ./Core/Src/middle/microps/netif.o
  .debug_aranges
-                0x00000000       0x48 ./Core/Src/middle/microps/netif.o
+                0x00000000       0x50 ./Core/Src/middle/microps/netif.o
  .debug_rnglists
-                0x00000000       0x34 ./Core/Src/middle/microps/netif.o
+                0x00000000       0x3b ./Core/Src/middle/microps/netif.o
  .debug_macro   0x00000000      0x413 ./Core/Src/middle/microps/netif.o
  .debug_macro   0x00000000      0xaf0 ./Core/Src/middle/microps/netif.o
  .debug_macro   0x00000000       0x22 ./Core/Src/middle/microps/netif.o
@@ -2324,10 +2328,10 @@ Discarded input sections
  .debug_macro   0x00000000       0x28 ./Core/Src/middle/microps/netif.o
  .debug_macro   0x00000000       0x1c ./Core/Src/middle/microps/netif.o
  .debug_macro   0x00000000       0x3a ./Core/Src/middle/microps/netif.o
- .debug_line    0x00000000      0xd49 ./Core/Src/middle/microps/netif.o
- .debug_str     0x00000000   0x116809 ./Core/Src/middle/microps/netif.o
+ .debug_line    0x00000000      0xd97 ./Core/Src/middle/microps/netif.o
+ .debug_str     0x00000000   0x11683e ./Core/Src/middle/microps/netif.o
  .comment       0x00000000       0x44 ./Core/Src/middle/microps/netif.o
- .debug_frame   0x00000000       0xfc ./Core/Src/middle/microps/netif.o
+ .debug_frame   0x00000000      0x124 ./Core/Src/middle/microps/netif.o
  .ARM.attributes
                 0x00000000       0x32 ./Core/Src/middle/microps/netif.o
  .group         0x00000000        0xc ./Core/Src/middle/microps/wrap.o

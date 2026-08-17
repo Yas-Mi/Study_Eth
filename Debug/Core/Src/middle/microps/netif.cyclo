@@ -3,4 +3,5 @@
 ../Core/Src/middle/microps/netif.c:95:17:netif_open	2
 ../Core/Src/middle/microps/netif.c:114:17:netif_close	1
 ../Core/Src/middle/microps/netif.c:127:10:netif_output	2
-../Core/Src/middle/microps/netif.c:153:6:netif_print	1
+../Core/Src/middle/microps/netif.c:153:10:netif_input	4
+../Core/Src/middle/microps/netif.c:182:6:netif_print	1

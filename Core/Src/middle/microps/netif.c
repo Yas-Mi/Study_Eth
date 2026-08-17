@@ -149,6 +149,35 @@ osStatus netif_output(struct net_device *dev, uint16_t type, const uint8_t *buf,
 	return eth_drv_send(ch, frame, flen, 1000);
 }
 
+// 入力
+osStatus netif_input(struct net_device *dev, uint8_t *frame, size_t flen)
+{
+	struct ether_hdr *hdr;
+	uint16_t type;
+	
+	// 長さチェック
+	if (flen < (ssize_t)sizeof(*hdr)) {
+		errorf("too short");
+		return osErrorParameter;
+	}
+	// 宛先の検証
+	hdr = (struct ether_hdr *)frame;
+	// フレームの宛先アドレスと自身のアドレスが一致していない場合
+	if (memcmp(dev->addr, hdr->dst, ETHER_ADDR_LEN) != 0) {
+		// ブロードキャストでない場合
+		if (memcmp(ETHER_ADDR_BROADCAST, hdr->dst, ETHER_ADDR_LEN) != 0) {
+			// for other host
+			return osErrorParameter;
+		}
+	}
+	type = ntoh16(hdr->type);
+	debugf("dev=%s, type=0x%x, len=%d", dev->name, type, flen);
+	netif_print(frame, flen);
+	
+	// プロトコルスタックへ引き渡す
+	return net_input(type, (uint8_t*)(hdr+1), flen - sizeof(*hdr), dev);
+}
+
 // ethernetフレームの詳細出力
 void netif_print(const uint8_t *frame, size_t flen)
 {
