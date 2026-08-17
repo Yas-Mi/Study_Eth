@@ -1,0 +1,13 @@
+../Core/Src/middle/microps/net.c:34:20:net_device_alloc	16	static
+../Core/Src/middle/microps/net.c:49:22:net_protocol_alloc	16	static
+../Core/Src/middle/microps/net.c:65:10:net_device_register	24	static
+../Core/Src/middle/microps/net.c:83:17:net_device_open	24	static
+../Core/Src/middle/microps/net.c:104:17:net_device_close	24	static
+../Core/Src/middle/microps/net.c:123:10:net_init	40	static
+../Core/Src/middle/microps/net.c:158:10:net_run	16	static
+../Core/Src/middle/microps/net.c:173:10:net_shutdown	16	static
+../Core/Src/middle/microps/net.c:189:10:net_device_output	48	static
+../Core/Src/middle/microps/net.c:218:10:net_input	64	static
+../Core/Src/middle/microps/net.c:238:10:net_protocol_register	32	static
+../Core/Src/middle/microps/net.c:266:10:net_device_add_iface	32	static
+../Core/Src/middle/microps/net.c:288:20:net_device_get_iface	24	static

@@ -15,7 +15,9 @@ RM := rm -rf
 -include Middlewares/Third_Party/FreeRTOS/Source/subdir.mk
 -include Drivers/STM32F7xx_HAL_Driver/Src/subdir.mk
 -include Core/Startup/subdir.mk
+-include Core/Src/util/subdir.mk
 -include Core/Src/peri/subdir.mk
+-include Core/Src/middle/microps/subdir.mk
 -include Core/Src/drv/subdir.mk
 -include Core/Src/app/subdir.mk
 -include Core/Src/subdir.mk
@@ -67,8 +69,8 @@ all: main-build
 main-build: Eth.elf secondary-outputs
 
 # Tool invocations
-Eth.elf Eth.map: $(OBJS) $(USER_OBJS) C:\Users\user\STM32CubeIDE\work\Eth\STM32F769NIHX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Eth.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\user\STM32CubeIDE\work\Eth\STM32F769NIHX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Eth.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Eth.elf Eth.map: $(OBJS) $(USER_OBJS) C:\Users\hcuym\OneDrive\Desktop\project\Ethernet\Study_Eth\STM32F769NIHX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Eth.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\hcuym\OneDrive\Desktop\project\Ethernet\Study_Eth\STM32F769NIHX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Eth.map" -Wl,--gc-sections -static -Wl,--wrap=osPoolCreate --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

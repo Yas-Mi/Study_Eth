@@ -20,6 +20,11 @@
 #define CONSOLE_RECV_TASK	(1)
 #define CONSOLE_TASK_MAX	(2)
 
+// 表示型
+typedef struct {
+	char output[CONSOLE_SEND_MAX];
+} OUTPUT;
+
 // 制御ブロック
 typedef struct {
 	osThreadId 		ConsoleSendTaskHandle;		// コンソール送信タスク
@@ -346,7 +351,7 @@ osStatus console_init(void)
 	}
 	
 	// メールキュー作成
-	osMailQDef(ConsoleSendBuf, 32, CONSOLE_SEND_MAX);
+	osMailQDef(ConsoleSendBuf, 32, OUTPUT);
 	this->ConsoleSendMailHandle = osMailCreate(osMailQ(ConsoleSendBuf), NULL);
 	
 	osThreadDef(ConsoleSend, StartConsoleSend, osPriorityNormal, 0, 512);

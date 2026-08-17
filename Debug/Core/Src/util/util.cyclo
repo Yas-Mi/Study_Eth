@@ -1,0 +1,7 @@
+../Core/Src/util/util.c:17:10:util_init	2
+../Core/Src/util/util.c:32:10:cksum16	4
+../Core/Src/util/util.c:52:10:hton16	1
+../Core/Src/util/util.c:67:10:ntoh16	1
+../Core/Src/util/util.c:82:10:hton32	1
+../Core/Src/util/util.c:97:10:ntoh32	1
+../Core/Src/util/util.c:112:10:rondom16	2

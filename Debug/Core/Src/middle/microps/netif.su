@@ -1,0 +1,6 @@
+../Core/Src/middle/microps/netif.c:51:20:netif_init	32	static
+../Core/Src/middle/microps/netif.c:88:17:netif_set_default_addr	16	static
+../Core/Src/middle/microps/netif.c:95:17:netif_open	24	static
+../Core/Src/middle/microps/netif.c:114:17:netif_close	24	static
+../Core/Src/middle/microps/netif.c:127:10:netif_output	1576	static
+../Core/Src/middle/microps/netif.c:153:6:netif_print	48	static

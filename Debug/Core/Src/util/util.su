@@ -1,0 +1,7 @@
+../Core/Src/util/util.c:17:10:util_init	16	static
+../Core/Src/util/util.c:32:10:cksum16	32	static
+../Core/Src/util/util.c:52:10:hton16	24	static
+../Core/Src/util/util.c:67:10:ntoh16	24	static
+../Core/Src/util/util.c:82:10:hton32	24	static
+../Core/Src/util/util.c:97:10:ntoh32	24	static
+../Core/Src/util/util.c:112:10:rondom16	16	static

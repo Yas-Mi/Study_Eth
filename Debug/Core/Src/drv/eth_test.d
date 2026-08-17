@@ -45,8 +45,8 @@ Core/Src/drv/eth_test.o: ../Core/Src/drv/eth_test.c \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- C:/Users/user/STM32CubeIDE/work/Eth/Core/Src/app/console.h \
- C:/Users/user/STM32CubeIDE/work/Eth/Core/Src/peri/eth.h
+ C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h \
+ C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/peri/eth.h
 ../Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f7xx.h:
 ../Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f769xx.h:
 ../Drivers/CMSIS/Include/core_cm7.h:
@@ -93,5 +93,5 @@ Core/Src/drv/eth_test.o: ../Core/Src/drv/eth_test.c \
 ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h:
-C:/Users/user/STM32CubeIDE/work/Eth/Core/Src/app/console.h:
-C:/Users/user/STM32CubeIDE/work/Eth/Core/Src/peri/eth.h:
+C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h:
+C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/peri/eth.h:

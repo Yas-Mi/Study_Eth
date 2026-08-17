@@ -5,3 +5,6 @@
 ../Core/Src/stm32f7xx_it.c:132:6:UsageFault_Handler	1
 ../Core/Src/stm32f7xx_it.c:147:6:DebugMon_Handler	1
 ../Core/Src/stm32f7xx_it.c:160:6:SysTick_Handler	2
+../Core/Src/stm32f7xx_it.c:189:13:USART1_IRQHandler	1
+../Core/Src/stm32f7xx_it.c:203:13:ETH_IRQHandler	1
+../Core/Src/stm32f7xx_it.c:217:13:ETH_WKUP_IRQHandler	1

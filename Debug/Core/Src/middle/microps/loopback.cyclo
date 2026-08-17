@@ -1,0 +1,2 @@
+../Core/Src/middle/microps/loopback.c:25:17:loopback_output	7
+../Core/Src/middle/microps/loopback.c:32:20:loopback_init	3
