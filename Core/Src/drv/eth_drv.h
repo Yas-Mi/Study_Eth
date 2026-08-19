@@ -29,7 +29,7 @@ typedef enum {
 extern const uint8_t ETHER_ADDR_BROADCAST[ETHER_ADDR_LEN];
 
 extern osStatus eth_drv_init(void);
-extern osStatus eth_drv_open(ETH_DRV_CH ch, char *mac_addr);
+extern osStatus eth_drv_open(ETH_DRV_CH ch, char *mac_addr, void *cb_vp);
 extern osStatus eth_drv_send(ETH_DRV_CH ch, uint8_t *p_data, uint16_t size, uint32_t timeout);
 
 extern char * ether_drv_addr_ntop(const uint8_t *n, char *p, size_t size);

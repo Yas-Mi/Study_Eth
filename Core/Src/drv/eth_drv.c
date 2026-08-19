@@ -21,6 +21,7 @@ typedef struct {
 	uint32_t			status;				// 状態
 	osSemaphoreId		tx_sem_id;  	 	// 送信セマフォID
 	osThreadId			EthDrvRecvHandle;	// タスクID
+	void *				cb_vp;				// 送受信エラーコールバック (*)いったん共通。必要があれば分ける予定
 } ETH_DRV_CB;
 static ETH_DRV_CB eth_drv_cb[ETH_DRV_CH_MAX];
 #define get_myself(ch) (&eth_drv_cb[ch])
@@ -108,13 +109,14 @@ int ether_drv_addr_pton(const char *p, uint8_t *n)
 }
 
 // 受信タスク
-static uint8_t rx_buf[1500];
+static uint8_t rx_buf[ETH_DRV_CH_MAX][ETHER_FRAME_SIZE_MAX];
 void EthDrvRecv(void const * argument)
 {
 	ETH_DRV_CB *this =  (ETH_DRV_CB*)argument;
 	osEvent evt;
 	osStatus ercd;
 	uint32_t size;
+	uint8_t *p_data;
 	
 	while (1) {
 		// 受信イベントを待つ
@@ -123,10 +125,14 @@ void EthDrvRecv(void const * argument)
 			continue;
 		}
 		// 読みに行く
-		if ((ercd = eth_recv(this->ch, rx_buf, &size)) != osOK) {
+		p_data = rx_buf[this->ch];
+		if ((ercd = eth_recv(this->ch, p_data, &size)) != osOK) {
 			continue;
 		}
 		// 上位層へ通知
+		if ((ercd = netif_input(this->cb_vp, p_data, size)) != osOK) {
+			// ★ ミスったらどうする？
+		}
 	}
 }
 
@@ -153,12 +159,12 @@ osStatus eth_drv_init(void)
 		this->tx_sem_id = osSemaphoreCreate(osSemaphore(semaphore), TX_DISCRIPTOR_NUM);
 		
 	}
-
+	
 	return osOK;
 }
 
 // オープン
-osStatus eth_drv_open(ETH_DRV_CH ch, char *mac_addr)
+osStatus eth_drv_open(ETH_DRV_CH ch, char *mac_addr, void *cb_vp)
 {
 	ETH_DRV_CB *this = get_myself(ch);
 	osStatus ercd;
@@ -184,6 +190,9 @@ osStatus eth_drv_open(ETH_DRV_CH ch, char *mac_addr)
 	par.rx_cb = rx_cb;
 	par.err_cb = err_cb;
 	par.cb_vp = this;
+	
+	// 攘夷に通知するパラメータを設定
+	this->cb_vp = cb_vp;
 	
 	// オープン
 	if ((ercd = eth_open(eth_ch, &par)) != osOK) {

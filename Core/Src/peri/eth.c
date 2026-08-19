@@ -336,7 +336,7 @@ typedef struct {
 	ETH_TX_CALLBACK		tx_cb;			// 送信コールバック
 	ETH_RX_CALLBACK		rx_cb;			// 受信コールバック
 	ETH_ERR_CALLBACK	err_cb;			// エラーコールバック
-	void *				cb_vp;				// 送信コールバックパラメータ
+	void *				cb_vp;			// 送信コールバックパラメータ
 } ETH_CB;
 static ETH_CB eth_cb[ETH_CH_MAX];
 #define get_myself(ch) (&eth_cb[ch])

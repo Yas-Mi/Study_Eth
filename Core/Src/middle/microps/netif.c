@@ -101,7 +101,7 @@ static osStatus netif_open(struct net_device *dev)
 	ch = *((ETH_DRV_CH*)(dev->priv));
 	
 	// 登録
-	if ((ercd = eth_drv_open(ch, (char*)dev->addr)) != osOK) {
+	if ((ercd = eth_drv_open(ch, (char*)dev->addr, dev)) != osOK) {
 		errorf("net_device_register() failure");
 		goto NETIF_OPEN_END;
 	}
