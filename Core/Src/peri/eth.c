@@ -424,7 +424,7 @@ static void dma_reset(ETH_TypeDef *p_reg)
 }
 
 // レジスタ設定
-static void eth_config(ETH_TypeDef *p_reg)
+static void eth_config(ETH_TypeDef *p_reg, ETH_OPEN *p_par)
 {
 	uint32_t loopback_setting = 0;
 	volatile uint32_t tmp_reg;
@@ -503,6 +503,7 @@ static void eth_config(ETH_TypeDef *p_reg)
 	//p_reg->MACPMTCSR |= (ETH_MACPMTCSR_WFE | ETH_MACPMTCSR_MPE);
 	
 	// マックアドレス設定
+#if 0
 	p_reg->MACA0HR = (((uint32_t)first_mac_address[5] << 8) | ((uint32_t)first_mac_address[4] << 0));
 	p_reg->MACA0LR = (((uint32_t)first_mac_address[3] << 24) | ((uint32_t)first_mac_address[2] << 16) | 
 					   ((uint32_t)first_mac_address[1] << 8) | ((uint32_t)first_mac_address[0] << 0));
@@ -510,6 +511,11 @@ static void eth_config(ETH_TypeDef *p_reg)
 	p_reg->MACA1LR = (((uint32_t)second_mac_address[3] << 24) | ((uint32_t)second_mac_address[2] << 16) | 
 					   ((uint32_t)second_mac_address[1] << 8) | ((uint32_t)second_mac_address[0] << 0));
 	p_reg->MACA1HR |= ETH_MACA1HR_AE;
+#endif
+	p_reg->MACA0HR = (((uint32_t)p_par->mac_addr[5] << 8) | ((uint32_t)p_par->mac_addr[4] << 0));
+	p_reg->MACA0LR = (((uint32_t)p_par->mac_addr[3] << 24) | ((uint32_t)p_par->mac_addr[2] << 16) | 
+					   ((uint32_t)p_par->mac_addr[1] << 8) | ((uint32_t)p_par->mac_addr[0] << 0));
+	
 	
 	// MACA1~3LR、MACA1~3HRはいったん使用しない
 	
@@ -825,7 +831,7 @@ osStatus eth_open(ETH_CH ch, ETH_OPEN *p_par)
 	p_reg = ch_info_tbl.p_reg;
 	
 	// レジスタ設定
-	eth_config(p_reg);
+	eth_config(p_reg, p_par);
 	
 	// ディスクリプタ設定
 	desc_config(this);

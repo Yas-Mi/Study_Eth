@@ -45,6 +45,9 @@ struct icmp_dest_unreach {
 	uint32_t unused;
 };
 
+// 送信用バッファ
+static uint8_t send_buf[ICMP_BUFSIZ];
+
 // メッセージタイプを文字列に変換
 static char * icmp_type_ntoa(uint8_t type)
 {
@@ -107,19 +110,18 @@ static void icmp_print(const uint8_t *data, size_t len)
 // icmpのメッセージ
 osStatus icmp_output(uint8_t type, uint8_t code, uint32_t val, const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst)
 {
-	uint8_t buf[ICMP_BUFSIZ];
 	struct icmp_hdr *hdr;
 	size_t msg_len;
 	char addr1[IP_ADDR_STR_LEN];
 	char addr2[IP_ADDR_STR_LEN];
 	
 	// 長すぎる
-	if (sizeof(buf) < sizeof(*hdr) + len) {
+	if (ICMP_BUFSIZ < sizeof(*hdr) + len) {
 		errorf("too large");
 		return osErrorResource;
 	}
 	// 各フィールドに値を設定
-	hdr = (struct icmp_hdr*)buf;
+	hdr = (struct icmp_hdr*)send_buf;
 	hdr->icmp_type = type;
 	hdr->icmp_code = code;
 	hdr->icmp_sum = 0;
@@ -128,8 +130,8 @@ osStatus icmp_output(uint8_t type, uint8_t code, uint32_t val, const uint8_t *da
 	msg_len = sizeof(*hdr) + len;
 	hdr->icmp_sum = cksum16((uint16_t*)hdr, msg_len, 0);
 	debugf("%s->%s, len=%d", ip_addr_ntop(src, addr1, sizeof(addr1)), ip_addr_ntop(dst, addr2, sizeof(addr2)), len);
-	icmp_print(buf, msg_len);
-	return ip_output(IP_PROTOCOL_ICMP, buf, msg_len, src, dst);
+	icmp_print(send_buf, msg_len);
+	return ip_output(IP_PROTOCOL_ICMP, send_buf, msg_len, src, dst);
 }
 
 // icmp入力ハンドラ

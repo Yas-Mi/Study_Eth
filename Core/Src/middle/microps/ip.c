@@ -35,10 +35,11 @@ struct ip_protocol {
 
 // 制御ブロック
 typedef struct {
-	osPoolId			iface_id;				// ネットワークデバイス用のメモリプールID
-	osPoolId			protocol_id;			// プロトコル用のメモリプールID
-	struct ip_iface 	*ifaces;				// 連結リスト
-	struct ip_protocol	*protocols;				// 連結リスト
+	osPoolId			iface_id;						// ネットワークデバイス用のメモリプールID
+	osPoolId			protocol_id;					// プロトコル用のメモリプールID
+	struct ip_iface 	*ifaces;						// 連結リスト
+	struct ip_protocol	*protocols;						// 連結リスト
+	uint8_t				send_buf[IP_TOTAL_SIZE_MAX];	// 送信バッファ
 }IP_CB;
 static IP_CB ip_cb;
 #define get_myself() (&ip_cb)
@@ -109,8 +110,8 @@ static void ip_print(const uint8_t *data, size_t len)
 	debugf("ttl=%d", hdr->ttl);
 	debugf("protocol=%d", hdr->protocol);
 	debugf("sum=%x", ntoh16(hdr->sum));
-	debugf("src=%d", ip_addr_ntop(hdr->src, addr, sizeof(addr)));
-	debugf("dst=%d", ip_addr_ntop(hdr->dst, addr, sizeof(addr)));
+	debugf("src=%s", ip_addr_ntop(hdr->src, addr, sizeof(addr)));
+	debugf("dst=%s", ip_addr_ntop(hdr->dst, addr, sizeof(addr)));
 }
 
 // 入力ハンドラ
@@ -177,7 +178,7 @@ static void ip_input(const uint8_t *data, size_t len, struct net_device *dev)
 		}
 	}
 	// 表示
-	debugf("permit, dev=%s, iface=%s", dev->name, ip_addr_ntop(iface->unicast, addr, sizeof(addr)));
+//	debugf("permit, dev=%s, iface=%s", dev->name, ip_addr_ntop(iface->unicast, addr, sizeof(addr)));
 	ip_print(data, total);
 	// プロトコルに対応した入力ハンドラを起動
 	for (proto = this->protocols; proto; proto = proto->next) {
@@ -345,12 +346,13 @@ static int ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t 
 // IPパケットをネットワークデバイスから送信する関数
 ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst)
 {
+	IP_CB *this = get_myself();
 	char addr1[IP_ADDR_STR_LEN];
 	char addr2[IP_ADDR_STR_LEN];
 	struct ip_iface *iface;
 	uint16_t id;
 	ssize_t plen;
-	uint8_t buf[IP_TOTAL_SIZE_MAX];		// ★あとから修正★ 65535byteのスタックを使用している
+	uint8_t *buf = this->send_buf;
 	
 	ip_addr_ntop(src, addr1, sizeof(addr1));
 	ip_addr_ntop(src, addr2, sizeof(addr2));

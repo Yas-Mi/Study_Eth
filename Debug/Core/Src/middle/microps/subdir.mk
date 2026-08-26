@@ -5,6 +5,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../Core/Src/middle/microps/arp.c \
 ../Core/Src/middle/microps/icmp.c \
 ../Core/Src/middle/microps/ip.c \
 ../Core/Src/middle/microps/loopback.c \
@@ -13,6 +14,7 @@ C_SRCS += \
 ../Core/Src/middle/microps/wrap.c 
 
 OBJS += \
+./Core/Src/middle/microps/arp.o \
 ./Core/Src/middle/microps/icmp.o \
 ./Core/Src/middle/microps/ip.o \
 ./Core/Src/middle/microps/loopback.o \
@@ -21,6 +23,7 @@ OBJS += \
 ./Core/Src/middle/microps/wrap.o 
 
 C_DEPS += \
+./Core/Src/middle/microps/arp.d \
 ./Core/Src/middle/microps/icmp.d \
 ./Core/Src/middle/microps/ip.d \
 ./Core/Src/middle/microps/loopback.d \
@@ -36,7 +39,7 @@ Core/Src/middle/microps/%.o Core/Src/middle/microps/%.su Core/Src/middle/microps
 clean: clean-Core-2f-Src-2f-middle-2f-microps
 
 clean-Core-2f-Src-2f-middle-2f-microps:
-	-$(RM) ./Core/Src/middle/microps/icmp.cyclo ./Core/Src/middle/microps/icmp.d ./Core/Src/middle/microps/icmp.o ./Core/Src/middle/microps/icmp.su ./Core/Src/middle/microps/ip.cyclo ./Core/Src/middle/microps/ip.d ./Core/Src/middle/microps/ip.o ./Core/Src/middle/microps/ip.su ./Core/Src/middle/microps/loopback.cyclo ./Core/Src/middle/microps/loopback.d ./Core/Src/middle/microps/loopback.o ./Core/Src/middle/microps/loopback.su ./Core/Src/middle/microps/net.cyclo ./Core/Src/middle/microps/net.d ./Core/Src/middle/microps/net.o ./Core/Src/middle/microps/net.su ./Core/Src/middle/microps/netif.cyclo ./Core/Src/middle/microps/netif.d ./Core/Src/middle/microps/netif.o ./Core/Src/middle/microps/netif.su ./Core/Src/middle/microps/wrap.cyclo ./Core/Src/middle/microps/wrap.d ./Core/Src/middle/microps/wrap.o ./Core/Src/middle/microps/wrap.su
+	-$(RM) ./Core/Src/middle/microps/arp.cyclo ./Core/Src/middle/microps/arp.d ./Core/Src/middle/microps/arp.o ./Core/Src/middle/microps/arp.su ./Core/Src/middle/microps/icmp.cyclo ./Core/Src/middle/microps/icmp.d ./Core/Src/middle/microps/icmp.o ./Core/Src/middle/microps/icmp.su ./Core/Src/middle/microps/ip.cyclo ./Core/Src/middle/microps/ip.d ./Core/Src/middle/microps/ip.o ./Core/Src/middle/microps/ip.su ./Core/Src/middle/microps/loopback.cyclo ./Core/Src/middle/microps/loopback.d ./Core/Src/middle/microps/loopback.o ./Core/Src/middle/microps/loopback.su ./Core/Src/middle/microps/net.cyclo ./Core/Src/middle/microps/net.d ./Core/Src/middle/microps/net.o ./Core/Src/middle/microps/net.su ./Core/Src/middle/microps/netif.cyclo ./Core/Src/middle/microps/netif.d ./Core/Src/middle/microps/netif.o ./Core/Src/middle/microps/netif.su ./Core/Src/middle/microps/wrap.cyclo ./Core/Src/middle/microps/wrap.d ./Core/Src/middle/microps/wrap.o ./Core/Src/middle/microps/wrap.su
 
 .PHONY: clean-Core-2f-Src-2f-middle-2f-microps
 

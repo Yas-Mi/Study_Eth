@@ -5,7 +5,7 @@
 ../Core/Src/app/console.c:204:16:console_recv	2
 ../Core/Src/app/console.c:222:13:console_analysis	10
 ../Core/Src/app/console.c:287:6:StartConsoleSend	2
-../Core/Src/app/console.c:317:6:StartConsoleRecv	3
-../Core/Src/app/console.c:340:10:console_init	2
-../Core/Src/app/console.c:367:6:console_printf	2
-../Core/Src/app/console.c:398:10:console_set_command	3
+../Core/Src/app/console.c:318:6:StartConsoleRecv	3
+../Core/Src/app/console.c:341:10:console_init	2
+../Core/Src/app/console.c:368:6:console_printf	3
+../Core/Src/app/console.c:402:10:console_set_command	3

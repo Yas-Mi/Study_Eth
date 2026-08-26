@@ -8,6 +8,8 @@
 #define debugf(fmt, ...) logf("[D]:"fmt" (%s, %d, %s)\n", ##__VA_ARGS__, __FILE__, __LINE__, __func__)	// デバッグ用
 
 // Hexdump
+#define HEXDUMP(buf, len)
+#if 0
 #define HEXDUMP(buf, len) do {                                      \
     const unsigned char *p = (const unsigned char *)(buf);          \
     size_t _i, _j;                                                   \
@@ -29,6 +31,7 @@
         console_printf("\n");                                        \
     }                                                                \
 } while (0)
+#endif
 
 extern uint16_t cksum16(uint16_t *addr, uint16_t count, uint32_t init);
 extern uint16_t hton16(uint16_t h);

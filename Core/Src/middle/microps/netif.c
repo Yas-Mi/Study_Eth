@@ -20,10 +20,11 @@
 
 // 制御ブロック
 typedef struct {
-	osPoolId			iface_id;				// ネットワークデバイス用のメモリプールID
-	osPoolId			protocol_id;			// プロトコル用のメモリプールID
-	struct ip_iface 	*ifaces;				// 連結リスト
-	struct ip_protocol	*protocols;				// 連結リスト
+	osPoolId			iface_id;								// ネットワークデバイス用のメモリプールID
+	osPoolId			protocol_id;							// プロトコル用のメモリプールID
+	struct ip_iface 	*ifaces;								// 連結リスト
+	struct ip_protocol	*protocols;								// 連結リスト
+	uint8_t				send_frame[ETHER_FRAME_SIZE_MAX];		// 送信フレーム
 }NEIF_CB;
 static NEIF_CB netif_cb;
 #define get_myself() (&netif_cb)
@@ -67,7 +68,7 @@ struct net_device *netif_init(char *name, const char *addr)
 	dev->alen = ETHER_ADDR_LEN;
 	memcpy(dev->bloadcast, ETHER_ADDR_BROADCAST, ETHER_ADDR_LEN);
 	if (addr != NULL) {
-		if (ether_drv_addr_pton(addr, dev->addr) != -1) {
+		if (ether_drv_addr_pton(addr, dev->addr) != 0) {
 			errorf("invalid address, addr=%s", addr);
 			return NULL;
 		}
@@ -126,7 +127,8 @@ static osStatus netif_close(struct net_device *dev)
 
 osStatus netif_output(struct net_device *dev, uint16_t type, const uint8_t *buf, size_t len, const void *dst)
 {
-	uint8_t frame[ETHER_FRAME_SIZE_MAX] = {};	// ★あとから外に出す
+	NEIF_CB *this = get_myself();
+	uint8_t frame = this->send_frame;
 	struct ether_hdr *hdr;
 	size_t flen, pad = 0;
 	ETH_DRV_CH ch;
@@ -186,7 +188,7 @@ void netif_print(const uint8_t *frame, size_t flen)
 	
 	hdr = (struct ether_hdr*)frame;
 	
-	debugf(" src=%d,", ether_drv_addr_ntop(hdr->src, addr, sizeof(addr)));
-	debugf(" dst=%d", ether_drv_addr_ntop(hdr->dst, addr, sizeof(addr)));
-	debugf("type=%d)", ntoh32(hdr->type));
+	debugf("src=%s,", ether_drv_addr_ntop(hdr->src, addr, sizeof(addr)));
+	debugf("dst=%s", ether_drv_addr_ntop(hdr->dst, addr, sizeof(addr)));
+	debugf("type=0x%x)", ntoh16(hdr->type));
 }

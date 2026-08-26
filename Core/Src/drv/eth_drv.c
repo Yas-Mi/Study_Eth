@@ -94,7 +94,7 @@ int ether_drv_addr_pton(const char *p, uint8_t *n)
 	if ((n == NULL)||(p == NULL)) {
 		return -1;
 	}
-	for (index = 0; index < ETHER_ADDR_STR_LEN; index++) {
+	for (index = 0; index < ETHER_ADDR_LEN; index++) {
 		val = strtol(p, &ep, 16);
 		if ((ep == p) || (val < 0) || (val > 0xFF) || ((index < ETHER_ADDR_LEN - 1) && (*ep != ':'))) {
 			break;
@@ -177,7 +177,7 @@ osStatus eth_drv_open(ETH_DRV_CH ch, char *mac_addr, void *cb_vp)
 	}
 	
 	// MACアドレスチェック
-	if ((ether_drv_addr_pton(mac_addr, par.mac_addr)) != 0) {
+	if (mac_addr == NULL) {
 		return osErrorParameter;
 	}
 	

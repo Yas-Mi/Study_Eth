@@ -13,7 +13,7 @@
 
 
 // マクロ
-#define BUFF_SIZE	(512)	// リングバッファのサイズ
+#define BUFF_SIZE	(2048)	// リングバッファのサイズ
 
 // 状態定義
 #define ST_INIT		(0)		// 初期状態

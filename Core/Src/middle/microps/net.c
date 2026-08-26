@@ -5,6 +5,7 @@
 #include "util.h"
 #include "ip.h"
 #include "icmp.h"
+#include "arp.h"
 
 #include "net.h"
 
@@ -140,6 +141,11 @@ osStatus net_init(void)
 	if (this->net_proto_id== NULL) {
 		return osErrorOS;
 	}
+	// arp初期化
+	if (arp_init() != osOK) {
+		errorf("ip_init() failure");
+		return osErrorResource;	
+	}
 	// ip初期化
 	if (ip_init() != osOK) {
 		errorf("ip_init() failure");
@@ -191,7 +197,7 @@ osStatus net_device_output(struct net_device *dev, uint16_t type, const uint8_t 
 	debugf("dev=%s, type=0x%x, len=%zu", dev->name, type, len);
 	
 	// オープンしてなかったらダメ
-	if (NET_DEVICE_IS_UP(dev)) {
+	if (!NET_DEVICE_IS_UP(dev)) {
 		errorf("not opend, dev=%s", dev->name);
 		return osErrorResource;
 	}
@@ -221,7 +227,7 @@ osStatus net_input(uint16_t type, const uint8_t *data, size_t len, struct net_de
 	struct net_protocol *proto;
 	
 	debugf("dev=%s, type=%x, len=%d", dev->name, type, len);
-	HEXDUMP(data, len);
+	//HEXDUMP(data, len);
 	
 	// タイプによって通知する上位層を決める
 	for (proto = this->protocols; proto; proto = proto->next) {

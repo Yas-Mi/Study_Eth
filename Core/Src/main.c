@@ -81,7 +81,7 @@ static const INIT_FUNC init_func[] = {
 	eth_init,
 	// drv
 	usart_drv_init,
-	//eth_drv_init,
+	eth_drv_init,
 	// app
 	console_init,
 	eth_test_init,

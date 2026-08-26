@@ -15,6 +15,8 @@
 #include "net.h"
 #include "util.h"
 #include "loopback.h"
+#include "netif.h"
+#include "icmp.h"
 
 #include "eth_drv.h"
 
@@ -189,12 +191,14 @@ struct net_device *g_dev;
 static osStatus setup(void)
 {
 	struct ip_iface *iface;
+	struct net_device *dev;
 	
 	infof("setup prorcol stack...");
 	if (net_init() !=  osOK) {
 		errorf("net_init() failure");
 		return osErrorOS;
 	}
+	// ループバック
 	g_dev = loopback_init();
 	if (g_dev == NULL) {
 		errorf("loopback_init() failure");
@@ -209,6 +213,21 @@ static osStatus setup(void)
 		errorf("ip_iface_register() failure");
 		return osErrorOS;
 	}
+	// eth
+	dev = netif_init("eth", "00:00:5e:00:53:01\n");
+	if (dev == NULL) {
+		errorf("loopback_init() failure");
+		return osErrorOS;
+	}
+	iface = ip_iface_alloc("192.0.2.2", "255.255.255.0");
+	if (iface == NULL) {
+		errorf("ip_iface_alloc() failure");
+		return osErrorOS;
+	}
+	if (ip_iface_register(dev, iface) != osOK) {
+		errorf("ip_iface_register() failure");
+		return osErrorOS;
+	}	
 	if (net_run() !=  osOK) {
 		errorf("net_init() failure");
 		return osErrorOS;
@@ -380,9 +399,9 @@ osStatus eth_test_init(void)
 	osMailQDef(EthTestSndBuf, 32, 128);
 	osMailCreate(osMailQ(EthTestSndBuf), NULL);
 	
-	// タスク作成
-	osThreadDef(EthTestRecv, EthTestRecv, osPriorityLow, 0, 512);
-	this->EthTestRecvHandle = osThreadCreate(osThread(EthTestRecv), NULL);
+//	// タスク作成
+//	osThreadDef(EthTestRecv, EthTestRecv, osPriorityLow, 0, 512);
+//	this->EthTestRecvHandle = osThreadCreate(osThread(EthTestRecv), NULL);
 	
 	osThreadDef(EthTestSend, EthTestSend, osPriorityLow, 0, 512);
 	this->EthTestSendHandle = osThreadCreate(osThread(EthTestSend), NULL);
