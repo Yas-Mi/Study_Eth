@@ -182,11 +182,11 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f7xx.s).                    */
 /******************************************************************************/
-
+#if 0
 /**
   * @brief This function handles USART1 global interrupt.
   */
-__weak void USART1_IRQHandler(void)
+void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
 
@@ -200,7 +200,7 @@ __weak void USART1_IRQHandler(void)
 /**
   * @brief This function handles Ethernet global interrupt.
   */
-__weak void ETH_IRQHandler(void)
+void ETH_IRQHandler(void)
 {
   /* USER CODE BEGIN ETH_IRQn 0 */
 
@@ -214,7 +214,7 @@ __weak void ETH_IRQHandler(void)
 /**
   * @brief This function handles Ethernet wake-up interrupt through EXTI line 19.
   */
-__weak void ETH_WKUP_IRQHandler(void)
+void ETH_WKUP_IRQHandler(void)
 {
   /* USER CODE BEGIN ETH_WKUP_IRQn 0 */
 
@@ -224,7 +224,7 @@ __weak void ETH_WKUP_IRQHandler(void)
 
   /* USER CODE END ETH_WKUP_IRQn 1 */
 }
-
+#endif
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */

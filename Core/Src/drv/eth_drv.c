@@ -151,7 +151,7 @@ osStatus eth_drv_init(void)
 		this->ch = ch;
 		
 		// タスク作成
-		osThreadDef(EthDrvRecv, EthDrvRecv, osPriorityLow, 0, 512);
+		osThreadDef(EthDrvRecv, EthDrvRecv, osPriorityLow, 0, 1024);
 		this->EthDrvRecvHandle = osThreadCreate(osThread(EthDrvRecv), this);
 		
 		// 送信ディスクリプタの数だけセマフォを作成

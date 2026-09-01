@@ -152,7 +152,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_ETH_Init();
-//  MX_RNG_Init();
+  MX_RNG_Init();
   /* USER CODE BEGIN 2 */
 	tmp_mx_eth_init();
 	// 初期化

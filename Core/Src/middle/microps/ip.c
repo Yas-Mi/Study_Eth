@@ -15,6 +15,7 @@
 #include "net.h"
 #include "util.h"
 #include "icmp.h"
+#include "arp.h"
 
 #define IP_HDR_OFFSET_MASK		(0x1FFF)
 #define IP_HDR_FLAG_MF			(0x2000)	// more flagments flag
@@ -137,30 +138,30 @@ static void ip_input(const uint8_t *data, size_t len, struct net_device *dev)
 	hdr = (struct ip_hdr *)data;
 	v = (hdr->vhl >> 4);
 	if (v != IP_VERSION_IPV4) {
-		errorf("ip version error:v=%d", v);
+		errorf("    ip version error:v=%d", v);
 		return;
 	}
 	// ヘッダ長のチェック
 	hlen = ((hdr->vhl & 0x0F) << 2);
 	if (len < hlen) {
-		errorf("header length error:len=%d<hlen=%d", len, hlen);
+		errorf("    header length error:len=%d<hlen=%d", len, hlen);
 		return;
 	}
 	// チェックサム検証
 	if (cksum16((uint16_t*)hdr, hlen, 0) != 0) {
-		errorf("chechsum error");
+		errorf("    chechsum error");
 		return;
 	}
 	// IPパケット長チェック
 	total = ntoh16(hdr->total);
 	if (len < total) {
-		errorf("total length error:len=%d<total=%d", len, total);
+		errorf("    total length error:len=%d<total=%d", len, total);
 		return;
 	}
 	// フラグメンテーションのチェック (*) IPでのパケット分割はサポートしない
 	offset = ntoh16(hdr->offset);
 	if (((offset & IP_HDR_FLAG_MF) != 0)||((offset & IP_HDR_OFFSET_MASK) != 0)) {
-		errorf("flagment dpes mpt support");
+		errorf(" flagment dpes mpt support");
 		return;
 	}
 	// IPv4のインタフェースを取得
@@ -327,6 +328,7 @@ static int ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t 
 {
 	char addr[IP_ADDR_LEN];
 	uint8_t hwaddr[NET_DEVICE_ADDR_LEN] = {};
+	int ret;
 	
 	ip_addr_ntop(target, addr, sizeof(addr));
 	debugf("dev=%s, len=%d, target=%s", NET_IFACE(iface)->dev->name, len, addr);
@@ -336,8 +338,11 @@ static int ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t 
 		if ((target == iface->broadcast) || (target == IP_ADDR_BROADCAST)) {
 			memcpy(hwaddr, NET_IFACE(iface)->dev->bloadcast, NET_IFACE(iface)->dev->alen);
 		} else {
-			errorf("ARP does not implemnt");
-			return osErrorResource;
+			// ARP解決
+			ret = arp_resolve(NET_IFACE(iface), target, hwaddr);
+			if (ret != ARP_RESOLVE_FOUND) {
+				return osErrorResource;
+			}
 		}
 	}
 	return net_device_output(NET_IFACE(iface)->dev, NET_PROTOCOL_TYPE_IP, data, len, hwaddr);
@@ -355,7 +360,7 @@ ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t s
 	uint8_t *buf = this->send_buf;
 	
 	ip_addr_ntop(src, addr1, sizeof(addr1));
-	ip_addr_ntop(src, addr2, sizeof(addr2));
+	ip_addr_ntop(dst, addr2, sizeof(addr2));
 	debugf("%s=>%s, protocol=%d, len=%d", addr1, addr2, protocol, len);
 	// 送信元アドレスの検証
 	// ANYはIPアドレスが指定されていないからの状態を表している。

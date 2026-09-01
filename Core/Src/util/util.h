@@ -7,6 +7,9 @@
 #define infof(fmt, ...) logf("[I]:"fmt"\n", ##__VA_ARGS__)													// 情報用
 #define debugf(fmt, ...) logf("[D]:"fmt" (%s, %d, %s)\n", ##__VA_ARGS__, __FILE__, __LINE__, __func__)	// デバッグ用
 
+#define countof(x) ((sizeof(x) / sizeof(*x)))
+#define tailof(x) (x + countof(x))
+
 // Hexdump
 #define HEXDUMP(buf, len)
 #if 0

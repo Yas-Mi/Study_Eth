@@ -190,5 +190,4 @@ void netif_print(const uint8_t *frame, size_t flen)
 	
 	debugf("src=%s,", ether_drv_addr_ntop(hdr->src, addr, sizeof(addr)));
 	debugf("dst=%s", ether_drv_addr_ntop(hdr->dst, addr, sizeof(addr)));
-	debugf("type=0x%x)", ntoh16(hdr->type));
 }
