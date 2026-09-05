@@ -1,5 +1,4 @@
 "./Core/Src/app/console.o"
-"./Core/Src/app/eth_send_data.o"
 "./Core/Src/app/eth_test.o"
 "./Core/Src/cache.o"
 "./Core/Src/freertos.o"

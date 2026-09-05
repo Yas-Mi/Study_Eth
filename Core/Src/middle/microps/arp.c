@@ -55,7 +55,8 @@ struct arp_cache {
 #define ARP_CACHE_STATE_RESOLVED	(2)		// 解決済み
 #define ARP_CACHE_STATE_STATIC		(3)		// 静的に登録されたキャッシュ
 
-#define ARP_CACHE_TIMEOUT			(5000)	// 5000ms
+#define ARP_TIMER_PERIOD			(100)			// 100ms
+#define ARP_CACHE_TIMEOUT			(1000*60*20)	// 20分 (*)一般的には20分らしい
 
 // 制御ブロック
 typedef struct {
@@ -314,7 +315,7 @@ osStatus arp_init(void)
 	}
 	
 	// タイマハンドラ開始
-	osTimerStart(this->timer_id, 100);
+	osTimerStart(this->timer_id, ARP_TIMER_PERIOD);
 	
 ARP_INIT_END:
 	return ercd;

@@ -6,17 +6,14 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../Core/Src/app/console.c \
-../Core/Src/app/eth_send_data.c \
 ../Core/Src/app/eth_test.c 
 
 OBJS += \
 ./Core/Src/app/console.o \
-./Core/Src/app/eth_send_data.o \
 ./Core/Src/app/eth_test.o 
 
 C_DEPS += \
 ./Core/Src/app/console.d \
-./Core/Src/app/eth_send_data.d \
 ./Core/Src/app/eth_test.d 
 
 
@@ -27,7 +24,7 @@ Core/Src/app/%.o Core/Src/app/%.su Core/Src/app/%.cyclo: ../Core/Src/app/%.c Cor
 clean: clean-Core-2f-Src-2f-app
 
 clean-Core-2f-Src-2f-app:
-	-$(RM) ./Core/Src/app/console.cyclo ./Core/Src/app/console.d ./Core/Src/app/console.o ./Core/Src/app/console.su ./Core/Src/app/eth_send_data.cyclo ./Core/Src/app/eth_send_data.d ./Core/Src/app/eth_send_data.o ./Core/Src/app/eth_send_data.su ./Core/Src/app/eth_test.cyclo ./Core/Src/app/eth_test.d ./Core/Src/app/eth_test.o ./Core/Src/app/eth_test.su
+	-$(RM) ./Core/Src/app/console.cyclo ./Core/Src/app/console.d ./Core/Src/app/console.o ./Core/Src/app/console.su ./Core/Src/app/eth_test.cyclo ./Core/Src/app/eth_test.d ./Core/Src/app/eth_test.o ./Core/Src/app/eth_test.su
 
 .PHONY: clean-Core-2f-Src-2f-app
 

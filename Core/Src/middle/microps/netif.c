@@ -128,7 +128,7 @@ static osStatus netif_close(struct net_device *dev)
 osStatus netif_output(struct net_device *dev, uint16_t type, const uint8_t *buf, size_t len, const void *dst)
 {
 	NEIF_CB *this = get_myself();
-	uint8_t frame = this->send_frame;
+	uint8_t *frame = this->send_frame;
 	struct ether_hdr *hdr;
 	size_t flen, pad = 0;
 	ETH_DRV_CH ch;

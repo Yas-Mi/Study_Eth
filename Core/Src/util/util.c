@@ -24,8 +24,9 @@ osStatus util_init(void)
 	this->hrng.Instance = RNG;
 	if (HAL_RNG_Init(&(this->hrng)) != HAL_OK)
 	{
-		Error_Handler();
+		while(1){};
 	}
+	return osOK;
 }
 
 // チェックサム計算

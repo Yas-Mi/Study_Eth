@@ -302,7 +302,7 @@ static ssize_t ip_build_packet(uint8_t protocol, const uint8_t *data, size_t len
 	hlen = IP_HDR_SIZE_MIN;
 	total = hlen + len;
 	if (size < total) {
-		return osErrorResource;
+		return -1;
 	}
 	// IPヘッダのフィールドに値を設定
 	hdr = (struct ip_hdr*)buf;
@@ -312,7 +312,7 @@ static ssize_t ip_build_packet(uint8_t protocol, const uint8_t *data, size_t len
 	hdr->id = hton16(id);
 	hdr->offset = hton16(offset);
 	hdr->ttl = 0xff;
-	hdr->protocol = hton16(protocol);
+	hdr->protocol = protocol;
 	hdr->sum = 0;
 	hdr->src = src;
 	hdr->dst = dst;
@@ -376,7 +376,7 @@ ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t s
 		return osErrorResource;
 	}
 	// 宛先アドレスの検証
-	// 
+	// ルータを経由せずに宛先へ直接到達する想定のため、宛先も同じネットワークにいる必要がある ※ ブロードキャストはのぞく
 	if ((dst & iface->netmask) != (iface->unicast & iface->netmask) && (dst != IP_ADDR_BROADCAST)) {
 		errorf("not reached, dst=%s", addr2);
 		return osErrorResource;
@@ -386,7 +386,7 @@ ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t s
 		return osErrorResource;
 	}
 	id = random();
-	plen = ip_build_packet(protocol, data, len, id, 0, iface->unicast, dst, buf, sizeof(buf));
+	plen = ip_build_packet(protocol, data, len, id, 0, iface->unicast, dst, buf, sizeof(this->send_buf));
 	if (plen == -1) {
 		errorf("ip_build_packet failure");
 		return osErrorResource;
