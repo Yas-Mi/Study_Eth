@@ -3,3 +3,5 @@
 ../Core/Src/middle/microps/icmp.c:111:10:icmp_output	2
 ../Core/Src/middle/microps/icmp.c:138:13:icmp_input	4
 ../Core/Src/middle/microps/icmp.c:171:10:icmp_init	2
+../Core/Src/middle/microps/icmp.c:181:13:ping	3
+../Core/Src/middle/microps/icmp.c:206:6:icmp_set_cmd	1

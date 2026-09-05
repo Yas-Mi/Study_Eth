@@ -31,4 +31,6 @@
 extern osStatus icmp_init(void);
 extern osStatus icmp_output(uint8_t type, uint8_t code, uint32_t val, const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst);
 
+void icmp_set_cmd(void);
+
 #endif /* SRC_MIDDLE_MICROPS_ICMP_H_ */

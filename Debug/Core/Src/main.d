@@ -51,7 +51,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/drv/usart_drv.h \
  C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/drv/eth_drv.h \
  C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h \
- C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/util/util.h
+ C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/util/util.h \
+ C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/middle/microps/ip.h \
+ C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/middle/microps/icmp.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal.h:
 ../Core/Inc/stm32f7xx_hal_conf.h:
@@ -106,3 +108,5 @@ C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/drv/usart_dr
 C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/drv/eth_drv.h:
 C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h:
 C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/util/util.h:
+C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/middle/microps/ip.h:
+C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/middle/microps/icmp.h:

@@ -177,3 +177,38 @@ osStatus icmp_init(void)
 	}
 	return osOK;
 }
+
+static void ping(int argc, char *argv[])
+{
+	uint8_t data[] = {'T', 'E', 'S', 'T'};
+	ip_addr_t src, dst;
+	
+	if (argc < 2) {
+		errorf("%s [ip address]", argv[0]);
+		return;
+	}
+	
+	// ユニキャストIPアドレスの設定
+	if (ip_addr_pton(argv[1], &dst) != osOK) {
+		errorf("ip_addr_pton failure, addr=%s", argv[1]);
+		return;
+	}
+	
+	ip_addr_pton("192.0.2.2", &src);
+	
+	// エコーリクエスト
+	icmp_output(ICMP_TYPE_ECHO, 0, 0x00010001, data, sizeof(data), src, dst);
+	
+	return;
+}
+
+// コマンド設定関数
+void icmp_set_cmd(void)
+{
+	COMMAND_INFO cmd;
+	
+	// コマンドの設定
+	cmd.input = "ping";
+	cmd.func = ping;
+	console_set_command(&cmd);
+}

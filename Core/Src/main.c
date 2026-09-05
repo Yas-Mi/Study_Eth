@@ -23,12 +23,18 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include "eth.h"
 #include "eth_test.h"
 #include "usart_drv.h"
 #include "eth_drv.h"
 #include "console.h"
 #include "util.h"
+#include "ip.h"
+#include "icmp.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -90,6 +96,7 @@ static const INIT_FUNC init_func[] = {
 static const CMD_FUNC cmd_func[] = {
 	eth_set_cmd,
 	eth_test_set_cmd,
+	icmp_set_cmd,
 };
 /* USER CODE END PV */
 
