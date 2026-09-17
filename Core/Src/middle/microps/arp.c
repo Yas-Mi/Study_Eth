@@ -159,7 +159,7 @@ static osStatus arp_request(struct net_iface *iface, ip_addr_t tpa)
 	request.hdr.op = hton16(ARP_OP_REQUEST);
 	memcpy(request.sha, iface->dev->addr, ETHER_ADDR_LEN);
 	memcpy(request.spa, &((struct ip_iface*)iface)->unicast, IP_ADDR_LEN);
-	memcpy(request.tha, 0, ETHER_ADDR_LEN);
+	memset(request.tha, 0, ETHER_ADDR_LEN);
 	memcpy(request.tpa, &tpa, IP_ADDR_LEN);
 	debugf("dev=%s, len=%d", iface->dev->name, sizeof(request));
 	arp_print((uint8_t*)&request, sizeof(request));

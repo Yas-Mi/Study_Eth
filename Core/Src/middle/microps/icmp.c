@@ -197,7 +197,7 @@ static void ping(int argc, char *argv[])
 	ip_addr_pton("192.0.2.2", &src);
 	
 	// エコーリクエスト
-	icmp_output(ICMP_TYPE_ECHO, 0, 0x00010001, data, sizeof(data), src, dst);
+	icmp_output(ICMP_TYPE_ECHO, 0, 0, data, sizeof(data), src, dst);
 	
 	return;
 }

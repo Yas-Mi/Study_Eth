@@ -16,6 +16,7 @@
 "./Core/Src/middle/microps/loopback.o"
 "./Core/Src/middle/microps/net.o"
 "./Core/Src/middle/microps/netif.o"
+"./Core/Src/middle/microps/udp.o"
 "./Core/Src/middle/microps/wrap.o"
 "./Core/Src/peri/eth.o"
 "./Core/Src/peri/usart.o"

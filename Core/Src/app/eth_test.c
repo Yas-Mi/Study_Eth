@@ -172,7 +172,7 @@ const uint8_t udp_full_packet[1500] = {
 
 #define LOOPBACK_IP_ADDR	"127.0.0.1"
 #define LOOPBACK_NETMASK	"255.0.0.0"
-
+#define DEFAULT_GATEWAY "192.0.2.1"
 
 // 制御ブロック
 typedef struct {
@@ -227,7 +227,11 @@ static osStatus setup(void)
 	if (ip_iface_register(dev, iface) != osOK) {
 		errorf("ip_iface_register() failure");
 		return osErrorOS;
-	}	
+	}
+	if (ip_route_set_default_gateway(iface, DEFAULT_GATEWAY) != osOK) {
+		errorf("ip_route_set_default_gateway() failure");
+		return osErrorOS;
+	}
 	if (net_run() !=  osOK) {
 		errorf("net_init() failure");
 		return osErrorOS;

@@ -24,6 +24,7 @@
 
 #define IP_IFACE_NUM			(4)			// インタフェースの最大値
 #define IP_PROTOCOL_NUM			(4)			// プロトコル数の最大値
+#define IP_ROUTE_NUM			(16)		// ルーティングエントリの最大値
 
 const ip_addr_t IP_ADDR_ANY = 0x00000000;			// 0.0.0.0
 const ip_addr_t IP_ADDR_BROADCAST = 0xFFFFFFFF;		// 255.255.255.255
@@ -34,12 +35,22 @@ struct ip_protocol {
 	ip_protocol_handler_t handler;	// プロトコルの入力データを処理する関数
 };
 
+struct ip_route {
+	struct ip_route	*next;
+	ip_addr_t		network;		// 連結リストの次の要素をさすポインタ
+	ip_addr_t		netmask;		// ネットワークアドレス
+	ip_addr_t		nexthop;		// サブネットマスク
+	struct ip_iface	*iface;			// 送信インタフェース
+};
+
 // 制御ブロック
 typedef struct {
 	osPoolId			iface_id;						// ネットワークデバイス用のメモリプールID
 	osPoolId			protocol_id;					// プロトコル用のメモリプールID
+	osPoolId			route_id;						// プロトコル用のメモリプールID
 	struct ip_iface 	*ifaces;						// 連結リスト
 	struct ip_protocol	*protocols;						// 連結リスト
+	struct ip_route		*routes;
 	uint8_t				send_buf[IP_TOTAL_SIZE_MAX];	// 送信バッファ
 }IP_CB;
 static IP_CB ip_cb;
@@ -84,6 +95,63 @@ char *ip_addr_ntop(ip_addr_t n, char *p, size_t size)
 	snprintf(p, size, "%d.%d.%d.%d", u8[0], u8[1], u8[2], u8[3]);
 	
 	return p;
+}
+
+// 経路の探索
+static struct ip_route * ip_route_lookup(ip_addr_t dst)
+{
+	IP_CB *this = get_myself();
+	struct ip_route * route, *candiate = NULL;
+	
+	for (route = this->routes; route; route = route->next) {
+		if ((dst & route->netmask) == route->network) {
+			// ロンゲストマッチの原則 (*) サブネットマスクが長いものが選ばれる
+			if (!candiate || ntoh32(candiate->netmask) < ntoh32(route->netmask)) {
+				candiate = route;
+			}
+		}
+	}
+	return candiate;
+}
+
+// 経路の追加
+static struct ip_route * ip_route_add(ip_addr_t network, ip_addr_t netmask, ip_addr_t nexthop, struct ip_iface	*iface)
+{
+	IP_CB *this = get_myself();
+	char addr1[IP_ADDR_STR_LEN];
+	char addr2[IP_ADDR_STR_LEN];
+	char addr3[IP_ADDR_STR_LEN];
+	char addr4[IP_ADDR_STR_LEN];
+	struct ip_route * route;
+	
+	if (nexthop != IP_ADDR_ANY) {
+		infof("%s/%s via %s dev %s src %s",
+			ip_addr_ntop(network, addr1, sizeof(addr1)),
+			ip_addr_ntop(netmask, addr2, sizeof(addr2)),
+			ip_addr_ntop(nexthop, addr3, sizeof(addr3)),
+			NET_IFACE(iface)->dev->name,
+			ip_addr_ntop(iface->unicast, addr4, sizeof(addr3)));
+	} else {
+		infof("%s/%s dev %s src %s",
+			ip_addr_ntop(network, addr1, sizeof(addr1)),
+			ip_addr_ntop(netmask, addr2, sizeof(addr2)),
+			NET_IFACE(iface)->dev->name,
+			ip_addr_ntop(iface->unicast, addr4, sizeof(addr3)));
+	}
+	// ルーティングエントリ確保
+	route = osPoolCAlloc(this->route_id);
+	if (route == NULL) {
+		errorf("memory_alloc() failure");
+		return NULL;
+	}
+	route->network = network;
+	route->netmask = netmask;
+	route->nexthop = nexthop;
+	route->iface = iface;
+	route->next = this->routes;
+	this->routes = route;
+	
+	return route;
 }
 
 // IPパケットの詳細出力
@@ -217,6 +285,12 @@ osStatus ip_init(void)
 	if (this->protocol_id == NULL) {
 		return osErrorOS;
 	}
+	// ルーティングエントリ用のメモリプール確保
+	osPoolDef(MemPool_3, IP_ROUTE_NUM, struct ip_route);
+	this->route_id = osPoolCreate (osPool (MemPool_3));
+	if (this->route_id == NULL) {
+		return osErrorOS;
+	}
 	// プロトコル登録
 	if (net_protocol_register(NET_PROTOCOL_TYPE_IP, ip_input) != osOK) {
 		errorf("net_protocol_register failure");
@@ -270,6 +344,11 @@ osStatus ip_iface_register(struct net_device *dev, struct ip_iface *iface)
 	// インタフェース登録
 	if (net_device_add_iface(dev, NET_IFACE(iface)) != osOK) {
 		errorf("net_device_add_iface failure");
+		return osErrorResource;
+	}
+	// 直結ネットワークの経路を自動登録 (*) 直結ネットワーク内のノードにはルータを解さずに直接送信するため、ネクストホップはIP_ADDR_ANY
+	if (!ip_route_add(iface->unicast & iface->netmask, iface->netmask, IP_ADDR_ANY, iface)) {
+		errorf("ip_route_add failure");
 		return osErrorResource;
 	}
 	iface->next = iface;
@@ -348,6 +427,22 @@ static int ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t 
 	return net_device_output(NET_IFACE(iface)->dev, NET_PROTOCOL_TYPE_IP, data, len, hwaddr);
 }
 
+// デフォルトルートの設定
+osStatus ip_route_set_default_gateway(struct ip_iface *iface, const char *gateway)
+{
+	ip_addr_t nexthop;
+	
+	if (ip_addr_pton(gateway, &nexthop) != osOK) {
+		errorf("ip_addr_pton failure");
+		return osErrorResource;
+	}
+	if (!ip_route_add(IP_ADDR_ANY, IP_ADDR_ANY, nexthop, iface)) {
+		errorf("ip_route_add failure");
+		return osErrorResource;
+	}
+	return osOK;
+}
+
 // IPパケットをネットワークデバイスから送信する関数
 ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst)
 {
@@ -358,27 +453,31 @@ ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t s
 	uint16_t id;
 	ssize_t plen;
 	uint8_t *buf = this->send_buf;
+	struct ip_route * route;
 	
 	ip_addr_ntop(src, addr1, sizeof(addr1));
 	ip_addr_ntop(dst, addr2, sizeof(addr2));
 	debugf("%s=>%s, protocol=%d, len=%d", addr1, addr2, protocol, len);
+	
 	// 送信元アドレスの検証
 	// ANYはIPアドレスが指定されていないからの状態を表している。
-	// 送信元が明示的に指定されない場合、いったんエラー（本来はルーティングテーブルを参照して宛先に到達可能なインタフェースのIPを自動的に選択する）
-	if(src == IP_ADDR_ANY) {
-		errorf("ip routing does not implement");
+	// 送信元が明示的に指定されない かつ 宛先がリミテッドブロードキャストの場合のみエラー
+	// 送信元が指定されていない場合は、送信元アドレスの自動選択する
+	if((src == IP_ADDR_ANY) && (dst == IP_ADDR_BROADCAST)) {
+		errorf("src addr is required for broadcast address");
 		return osErrorResource;
 	}
-	// 出力先インタフェースの決定
-	iface = ip_iface_select(src);
-	if (iface == NULL) {
-		errorf("iiface not found, src=%s", addr1);
+	// 送信経路の探索
+	route = ip_route_lookup(dst);
+	if (route == NULL) {
+		errorf("no route to host, dst=%s", addr2);
 		return osErrorResource;
 	}
-	// 宛先アドレスの検証
-	// ルータを経由せずに宛先へ直接到達する想定のため、宛先も同じネットワークにいる必要がある ※ ブロードキャストはのぞく
-	if ((dst & iface->netmask) != (iface->unicast & iface->netmask) && (dst != IP_ADDR_BROADCAST)) {
-		errorf("not reached, dst=%s", addr2);
+	// 送信板フェースを取得
+	iface = route->iface;
+	// 送信元が指定されているけど、送信インターフェースのユニキャストアドレスが同一でなかったらエラー
+	if ((src != IP_ADDR_ANY) || (src != iface->unicast)) {
+		errorf("unable to output with specified source address, src=%s", addr1);
 		return osErrorResource;
 	}
 	if (NET_IFACE(iface)->dev->mtu < IP_HDR_SIZE_MIN + len) {
@@ -391,7 +490,8 @@ ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t s
 		errorf("ip_build_packet failure");
 		return osErrorResource;
 	}
-	if (ip_output_device(iface, buf, plen, dst) == -1) {
+	// ネクストホップがある場合は、ネクストホップに送信
+	if (ip_output_device(iface, buf, plen, route->nexthop ? route->nexthop : dst) == -1) {
 		errorf("ip_output_device failure");
 		return osErrorResource;
 	}
@@ -424,4 +524,52 @@ osStatus ip_protocol_register(uint8_t protocol, ip_protocol_handler_t handler)
 	infof("success, protocol=%u", protocol);
 	
 	return osOK;
+}
+
+// [IPアドレス:ポート番号]という形式からバイナリに変換する関数
+osStatus ip_endp_pton(const char *p, ip_endp_t *n)
+{
+	char *sep;
+	char addr[IP_ADDR_STR_LEN] = {};
+	long int port;
+	
+	sep = strrchr(p, ':');
+	if (sep == NULL) {
+		return osErrorResource;
+	}
+	memcpy(addr, p, sep - p);
+	if (ip_addr_pton(addr, &n->addr) != osOK) {
+		return osErrorResource;
+	}
+	port = strtol(sep+1, NULL, 10);
+	if ((port <= 0) || (port > UINT16_MAX)) {
+		return osErrorResource;
+	}
+	n->port = hton16(port);
+	
+	return osOK;
+}
+
+// ip_endp_tからテキストに変換する関数
+char *ip_endp_ntop(ip_endp_t n, char *p, size_t size)
+{
+	size_t offset;
+	
+	ip_addr_ntop(n.addr, p, size);
+	offset = strlen(p);
+	snprintf(p+offset, size - offset, ":%d", ntoh16(n.port));
+	
+	return p;
+}
+
+// トランスポート層への機能提供
+struct ip_iface *ip_route_get_iface(ip_addr_t dst)
+{
+	struct ip_route * route;
+	
+	route = ip_route_lookup(dst);
+	if (route == NULL) {
+		return NULL;
+	}
+	return route->iface;
 }

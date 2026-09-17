@@ -36,6 +36,20 @@
 } while (0)
 #endif
 
+struct queue_entry {
+	struct queue_entry	*next;
+	void *data;
+	// data bytes exists after this sturucture
+};
+
+struct queue {
+	struct queue_entry		*head;
+	struct queue_entry		*tail;
+	size_t num;
+};
+
+typedef void (*queue_func_t)(void *arg, struct queue_entry *entry);
+
 extern uint16_t cksum16(uint16_t *addr, uint16_t count, uint32_t init);
 extern uint16_t hton16(uint16_t h);
 extern uint16_t ntoh16(uint16_t n);
@@ -44,3 +58,10 @@ extern uint32_t ntoh32(uint32_t h);
 
 extern osStatus util_init(void);
 extern uint16_t rondom16(void);
+
+extern void queue_init(struct queue *queue);
+extern struct queue_entry * queue_push(struct queue *queue, void *data);
+extern void * queue_pop(struct queue *queue);
+extern void * queue_peek(struct queue *queue);
+extern void queue_foreach(struct queue *queue, queue_func_t func, void *arg);
+

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "cmsis_os.h"
 #include "util.h"
+#include "udp.h"
 #include "ip.h"
 #include "icmp.h"
 #include "arp.h"
@@ -11,21 +12,33 @@
 
 #define NET_DEV_NUM		(4)
 #define NET_PROTO_NUM	(4)
+#define NET_QUEUE_NUM	(16)
 
 // プロトコル構造体
 struct net_protocol {
-	struct net_protocol *next;		// 連結リストの次の要素をさすポインタ
-	uint16_t type;					// プロトコルの種別を表す値
-	net_prtocol_handler_t handler;	// プロトコルのパケットを処理する入力ハンドラの関数ポインタ
+	struct net_protocol		*next;		// 連結リストの次の要素をさすポインタ
+	uint16_t				type;		// プロトコルの種別を表す値
+	net_prtocol_handler_t	handler;	// プロトコルのパケットを処理する入力ハンドラの関数ポインタ
+	osMutexId				lock;		// ミューテックス
+	struct queue			queue;		// 受信キュー
+};
+
+// プロトコルの受信キューのためのエントリ構造体
+struct net_protocol_queue_entry {
+	struct queue_entry	_entry;
+	struct net_device	*dev;
+	size_t				len;
 };
 
 // 制御ブロック
 typedef struct {
-	osPoolId   net_dev_id;					// ネットワークデバイス用のメモリプールID
-	osPoolId   net_proto_id;				// ネットワークプロトコル用のメモリプールID
-	struct net_device *devices;				// ネットワークデバイス管理リスト
-	uint32_t index;							// ネットワークデバイスのインデックス番号
-	struct net_protocol *protocols;	//プロトコルの登録リスト
+	osPoolId			net_dev_id;		// ネットワークデバイス用のメモリプールID
+	osPoolId			net_proto_id;	// ネットワークプロトコル用のメモリプールID
+	osPoolId			net_queue_id;	// ネットワークプロトコル用のメモリプールID
+	osMutexId			lock;			// ミューテックス
+	struct net_device	*devices;		// ネットワークデバイス管理リスト
+	uint32_t			index;			// ネットワークデバイスのインデックス番号
+	struct net_protocol	*protocols;		//プロトコルの登録リスト
 }NET_CB;
 static NET_CB net_cb;
 #define get_myself() (&net_cb)
@@ -121,6 +134,46 @@ static osStatus net_device_close(struct net_device *dev)
 	return osOK;
 }
 
+// 受信キューにパケットを追加
+static struct net_protocol_queue_entry * net_protocol_queue_push(struct net_protocol *proto, const uint8_t *data, size_t len, struct net_device *dev)
+{
+	NET_CB *this = get_myself();
+	struct net_protocol_queue_entry *entry;
+	
+	// メモリ確保
+	entry = osPoolCAlloc(this->net_queue_id);
+	if (entry == NULL) {
+		errorf("osPoolCAlloc() failure");
+		return NULL;
+	}
+	entry->dev = dev;
+	entry->len = len;
+	memcpy(entry+1, data, len);
+	osMutexWait(this->lock, osWaitForever);
+	if (!queue_push(&proto->queue, (struct queue_entry *)entry)) {
+		osMutexRelease(this->lock);
+		return NULL;
+	}
+	osMutexRelease(this->lock);
+	return entry;
+}
+
+// 受信キューからパケットを取り出す
+static struct net_protocol_queue_entry * net_protocol_queue_pop(struct net_protocol *proto)
+{
+	NET_CB *this = get_myself();
+	struct net_protocol_queue_entry *entry;
+	
+	osMutexWait(this->lock, osWaitForever);
+	entry = (struct net_protocol_queue_entry *)queue_pop(&proto->queue);
+	if (entry == NULL) {
+		osMutexRelease(this->lock);
+		return NULL;
+	}
+	osMutexRelease(this->lock);
+	return entry;
+}
+
 osStatus net_init(void)
 {
 	NET_CB *this = get_myself();
@@ -141,9 +194,21 @@ osStatus net_init(void)
 	if (this->net_proto_id== NULL) {
 		return osErrorOS;
 	}
+	// ネットワークプロトコル用のメモリプール確保
+	osPoolDef(MemPool_3, NET_QUEUE_NUM, struct net_protocol_queue_entry);
+	this->net_queue_id = osPoolCreate (osPool (MemPool_3));
+	if (this->net_queue_id== NULL) {
+		return osErrorOS;
+	}
+	// ミューテックス作成
+	osMutexDef(myLock);
+	this->lock = osMutexCreate(osMutex(myLock));
+	if (this->lock == NULL) {
+		return osErrorOS;
+	}
 	// arp初期化
 	if (arp_init() != osOK) {
-		errorf("ip_init() failure");
+		errorf("arp_init() failure");
 		return osErrorResource;	
 	}
 	// ip初期化
@@ -154,6 +219,11 @@ osStatus net_init(void)
 	// icmp初期化
 	if (icmp_init() != osOK) {
 		errorf("icmp_init() failure");
+		return osErrorResource;	
+	}
+	// udp初期化
+	if (udp_init() != osOK) {
+		errorf("udp_init() failure");
 		return osErrorResource;	
 	}
 	infof("success...");
@@ -233,6 +303,10 @@ osStatus net_input(uint16_t type, const uint8_t *data, size_t len, struct net_de
 	for (proto = this->protocols; proto; proto = proto->next) {
 		if (type == proto->type) {
 			proto->handler(data, len, dev);
+//			if (!net_protocol_queue_push(proto, data, len, dev)) {
+//				errorf("net_protocol_queue_push failure()");
+//				return osErrorResource;
+//			}
 			return osOK;
 		}
 	}
