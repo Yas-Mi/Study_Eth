@@ -9,6 +9,7 @@
 
 #define countof(x) ((sizeof(x) / sizeof(*x)))
 #define tailof(x) (x + countof(x))
+#define indexof(x, y) (((uintptr_t)y - (uintptr_t)x) / sizeof(*y))
 
 // Hexdump
 #define HEXDUMP(buf, len)

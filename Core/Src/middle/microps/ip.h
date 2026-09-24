@@ -30,6 +30,7 @@ struct net_device;	/* forward declaration */
 typedef uint32_t ip_addr_t;
 
 // エンドポイント構造体
+// 通信の両端のエンドポイントは、インターネット層のアドレスとどらんすぽー塗装のポートで決定する
 typedef struct {
 	ip_addr_t addr;
 	uint16_t port;
