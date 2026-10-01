@@ -20,6 +20,11 @@
 #define CONSOLE_RECV_TASK	(1)
 #define CONSOLE_TASK_MAX	(2)
 
+// 表示型
+typedef struct {
+	char output[CONSOLE_SEND_MAX];
+} OUTPUT;
+
 // 制御ブロック
 typedef struct {
 	osThreadId 		ConsoleSendTaskHandle;		// コンソール送信タスク
@@ -292,18 +297,19 @@ void StartConsoleSend(void const * argument)
 		evt = osMailGet(this->ConsoleSendMailHandle, 10);
 		// イベントがないなら次の送信データを待つ
 		if (evt.status == osEventMail) {
+			// 初期化
+			memset(print_buf, 0x00, sizeof(print_buf));
+			// サイズ取得
+			size = strlen(evt.value.p);
 			// 早く開放したいからローカル変数にコピー
-			memcpy(print_buf, evt.value.p, CONSOLE_SEND_MAX);
+			memcpy(print_buf, evt.value.p, size + 1);	// + 1は'\0'
 			// 解放
 			osMailFree(this->ConsoleSendMailHandle, evt.value.p);
-			// サイズ取得
-			size = strlen(print_buf);
 			// コンソール出力
 			ercd = usart_drv_send(USART_DRV_DEV_CONSOLE, (uint8_t*)print_buf, size, 10);
 			if (ercd < 0) {
 				// エラー処理
 			}
-			
 		}
 	}
 }
@@ -346,7 +352,7 @@ osStatus console_init(void)
 	}
 	
 	// メールキュー作成
-	osMailQDef(ConsoleSendBuf, 32, CONSOLE_SEND_MAX);
+	osMailQDef(ConsoleSendBuf, 64, OUTPUT);
 	this->ConsoleSendMailHandle = osMailCreate(osMailQ(ConsoleSendBuf), NULL);
 	
 	osThreadDef(ConsoleSend, StartConsoleSend, osPriorityNormal, 0, 512);
@@ -364,7 +370,7 @@ void console_printf(const char *fmt, ...)
 	CONSOLE_CB *this = get_myself();
 	int32_t length = 0;
 	va_list va;
-	char *output;
+	char *output = NULL;
 	
 	va_start(va, fmt);
 	length = ts_formatlength(fmt, va);
@@ -377,6 +383,9 @@ void console_printf(const char *fmt, ...)
 	
 	// メモリ確保
 	output = osMailAlloc(this->ConsoleSendMailHandle, osWaitForever);
+	if (output == NULL) {
+		return;
+	}
 	
 	// 初期化
 	memset(output, 0x00, CONSOLE_SEND_MAX);

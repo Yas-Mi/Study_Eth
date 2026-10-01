@@ -1,0 +1,2 @@
+../Core/Src/middle/microps/wrap.c:17:11:__wrap_osMailCreate	1
+../Core/Src/middle/microps/wrap.c:32:10:__wrap_osPoolCreate	1

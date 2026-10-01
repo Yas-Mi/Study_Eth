@@ -25,7 +25,9 @@ SUBDIRS := \
 Core/Src/app \
 Core/Src \
 Core/Src/drv \
+Core/Src/middle/microps \
 Core/Src/peri \
+Core/Src/util \
 Core/Startup \
 Drivers/STM32F7xx_HAL_Driver/Src \
 Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS \

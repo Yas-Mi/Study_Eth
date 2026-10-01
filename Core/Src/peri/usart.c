@@ -13,7 +13,8 @@
 
 
 // マクロ
-#define BUFF_SIZE	(512)	// リングバッファのサイズ
+#define BUFF_SIZE	(2048)	// リングバッファのサイズ
+#define USART_CLK	(96*1000*1000)	// 96MHz
 
 // 状態定義
 #define ST_INIT		(0)		// 初期状態
@@ -95,10 +96,10 @@ void usart_common_handler(USART_CH ch)
 	// エラーチェック
 	if (p_reg->ISR & (USART_ISR_PE | USART_ISR_FE | USART_ISR_NE | USART_ISR_ORE)) {
 		// エラーフラグのクリア
-		//clr_bit(p_reg->ICR, USART_ICR_PECF);
-		//clr_bit(p_reg->ICR, USART_ICR_FECF);
-		//clr_bit(p_reg->ICR, USART_ICR_NCF);
-		//clr_bit(p_reg->ICR, USART_ICR_ORECF);
+		clr_bit(p_reg->ICR, USART_ICR_PECF);
+		clr_bit(p_reg->ICR, USART_ICR_FECF);
+		clr_bit(p_reg->ICR, USART_ICR_NCF);
+		clr_bit(p_reg->ICR, USART_ICR_ORECF);
 		// エラーコールバック通知
 		if (this->err_cb != NULL) {
 			this->err_cb(ch, this->p_ctx);
@@ -195,7 +196,7 @@ int32_t usart_config(USART_CH ch, USART_OPEN_PAR *p_open_par)
 	// クロック設定
 	//peri_clk = HAL_RCCEx_GetPeriphCLKFreq(get_clk(ch));
 	//p_reg->BRR = peri_clk/p_open_par->baudrate;
-	p_reg->BRR = 0x3aa;
+	p_reg->BRR = USART_CLK/p_open_par->baudrate;
 	
 	// データ長、パリティ設定
 	p_reg->CR1 |= length_reg_config_tbl[p_open_par->len];
@@ -284,6 +285,7 @@ EXIT:
 osStatus usart_close(USART_CH ch)
 {
 	// ★後で実装★
+	return osOK;
 }
 
 // 送信関数

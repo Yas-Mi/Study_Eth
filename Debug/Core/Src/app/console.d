@@ -17,7 +17,7 @@ Core/Src/app/console.o: ../Core/Src/app/console.c \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
  ../Core/Src/app/console.h \
- C:/Users/user/STM32CubeIDE/work/Eth/Core/Src/drv/usart_drv.h
+ C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/drv/usart_drv.h
 ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
 ../Core/Inc/FreeRTOSConfig.h:
@@ -36,4 +36,4 @@ Core/Src/app/console.o: ../Core/Src/app/console.c \
 ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h:
 ../Core/Src/app/console.h:
-C:/Users/user/STM32CubeIDE/work/Eth/Core/Src/drv/usart_drv.h:
+C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/drv/usart_drv.h:

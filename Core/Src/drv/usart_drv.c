@@ -15,7 +15,7 @@
 #define ST_OPEN		(2)		// オープン状態
 
 // マクロ
-#define SLEEP_TIME	(10)	// スリープ時間[ms]
+#define SLEEP_TIME	(1)	// スリープ時間[ms]
 
 // イベント
 #define UART_DRV_SEND_DONE	(0x00000001)

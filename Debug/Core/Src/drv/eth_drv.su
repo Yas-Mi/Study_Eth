@@ -1,0 +1,9 @@
+../Core/Src/drv/eth_drv.c:52:13:rx_cb	24	static
+../Core/Src/drv/eth_drv.c:62:13:tx_cb	24	static
+../Core/Src/drv/eth_drv.c:70:13:err_cb	24	static
+../Core/Src/drv/eth_drv.c:78:8:ether_drv_addr_ntop	56	static
+../Core/Src/drv/eth_drv.c:88:5:ether_drv_addr_pton	32	static
+../Core/Src/drv/eth_drv.c:113:6:EthDrvRecv	48	static
+../Core/Src/drv/eth_drv.c:140:10:eth_drv_init	64	static
+../Core/Src/drv/eth_drv.c:167:10:eth_drv_open	64	static
+../Core/Src/drv/eth_drv.c:207:10:eth_drv_send	40	static

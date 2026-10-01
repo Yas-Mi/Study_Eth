@@ -1,0 +1,15 @@
+/*
+ * netif.h
+ *
+ *  Created on: Jul 27, 2026
+ *      Author: hcuym
+ */
+
+#ifndef SRC_MIDDLE_MICROPS_NETIF_H_
+#define SRC_MIDDLE_MICROPS_NETIF_H_
+
+extern struct net_device *netif_init(char *name, const char *addr);
+extern void netif_print(const uint8_t *frame, size_t flen);
+extern osStatus netif_input(struct net_device *dev, uint8_t *frame, size_t flen);
+
+#endif /* SRC_MIDDLE_MICROPS_NETIF_H_ */
