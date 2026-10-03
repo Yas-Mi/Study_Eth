@@ -30,7 +30,6 @@
  */
 static uint8_t *__sbrk_heap_end = NULL;
 
-
 /**
  * @brief _sbrk() allocates memory to the newlib heap and is used by malloc
  *        and others from the C library
