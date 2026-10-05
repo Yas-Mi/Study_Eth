@@ -9,4 +9,4 @@ if "%msg%"=="" set msg=update
 git commit -m "%msg%"
 
 REM --- 3. main ブランチへ push ---
-git push origin main
+git push origin Study_Eth_perf
