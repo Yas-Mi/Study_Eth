@@ -304,9 +304,6 @@ struct ip_iface *ip_iface_alloc(const char *unicast, const char *netmask)
 {
 	IP_CB *this = get_myself();
 	struct ip_iface *iface;
-	uint8_t *a = NULL;
-	
-	*a = 1;
 	
 	// インタフェース用のメモリを確保
 	iface = osPoolCAlloc(this->iface_id);
