@@ -18,6 +18,10 @@
 
 #include "netif.h"
 
+#define NETIF_DBG_PRINT(fmt, ...) debugf("[NIF ]:"fmt,  ##__VA_ARGS__)
+#define NETIF_INFO_PRINT(fmt, ...) infof("[NIF ]:"fmt,  ##__VA_ARGS__)
+#define NETIF_ERR_PRINT(fmt, ...) errorf("[NIF ]:"fmt,  ##__VA_ARGS__)
+
 // 制御ブロック
 typedef struct {
 	osPoolId			iface_id;								// ネットワークデバイス用のメモリプールID
@@ -54,10 +58,10 @@ struct net_device *netif_init(char *name, const char *addr)
 	NEIF_CB *this = get_myself();
 	struct net_device *dev;
 	
-	infof("name=%s, addr=%s", name, addr ? addr : "(none)");
+	NETIF_INFO_PRINT("name=%s, addr=%s", name, addr ? addr : "(none)");
 	dev = net_device_alloc();
 	if (dev == NULL) {
-		errorf("net_device_alloc() failure");
+		NETIF_ERR_PRINT("net_device_alloc() failure");
 		return NULL;
 	}
 	// 設定
@@ -69,7 +73,7 @@ struct net_device *netif_init(char *name, const char *addr)
 	memcpy(dev->bloadcast, ETHER_ADDR_BROADCAST, ETHER_ADDR_LEN);
 	if (addr != NULL) {
 		if (ether_drv_addr_pton(addr, dev->addr) != 0) {
-			errorf("invalid address, addr=%s", addr);
+			NETIF_ERR_PRINT("invalid address, addr=%s", addr);
 			return NULL;
 		}
 		
@@ -78,10 +82,10 @@ struct net_device *netif_init(char *name, const char *addr)
 	dev->priv = &(netif_ch_mapping_tbl[0]);
 	// 登録
 	if (net_device_register(dev) != osOK) {
-		errorf("net_device_register() failure");
+		NETIF_ERR_PRINT("net_device_register() failure");
 		return NULL;
 	}
-	infof("success, dev=%s", dev->name);
+	NETIF_INFO_PRINT("success, dev=%s", dev->name);
 	
 	return dev;
 }
@@ -103,7 +107,7 @@ static osStatus netif_open(struct net_device *dev)
 	
 	// 登録
 	if ((ercd = eth_drv_open(ch, (char*)dev->addr, dev)) != osOK) {
-		errorf("net_device_register() failure");
+		NETIF_ERR_PRINT("net_device_register() failure");
 		goto NETIF_OPEN_END;
 	}
 	
@@ -142,7 +146,7 @@ osStatus netif_output(struct net_device *dev, uint16_t type, const uint8_t *buf,
 		pad = ETHER_PAYLOAD_SIZE_MIN - len;
 	}
 	flen = sizeof(*hdr) + len + pad;
-	debugf("dev=%s, type=%x, len=%d", dev->name, type, flen);
+	NETIF_DBG_PRINT("dev=%s, type=%x, len=%d", dev->name, type, flen);
 	netif_print(frame, flen);
 	
 	// ch情報取得
@@ -159,7 +163,7 @@ osStatus netif_input(struct net_device *dev, uint8_t *frame, size_t flen)
 	
 	// 長さチェック
 	if (flen < (ssize_t)sizeof(*hdr)) {
-		errorf("too short");
+		NETIF_ERR_PRINT("too short");
 		return osErrorParameter;
 	}
 	// 宛先の検証
@@ -173,7 +177,7 @@ osStatus netif_input(struct net_device *dev, uint8_t *frame, size_t flen)
 		}
 	}
 	type = ntoh16(hdr->type);
-	debugf("dev=%s, type=0x%x, len=%d", dev->name, type, flen);
+	NETIF_DBG_PRINT("dev=%s, type=0x%x, len=%d", dev->name, type, flen);
 	netif_print(frame, flen);
 	
 	// プロトコルスタックへ引き渡す
@@ -188,6 +192,6 @@ void netif_print(const uint8_t *frame, size_t flen)
 	
 	hdr = (struct ether_hdr*)frame;
 	
-	debugf("src=%s,", ether_drv_addr_ntop(hdr->src, addr, sizeof(addr)));
-	debugf("dst=%s", ether_drv_addr_ntop(hdr->dst, addr, sizeof(addr)));
+	NETIF_DBG_PRINT("src=%s,", ether_drv_addr_ntop(hdr->src, addr, sizeof(addr)));
+	NETIF_DBG_PRINT("dst=%s", ether_drv_addr_ntop(hdr->dst, addr, sizeof(addr)));
 }

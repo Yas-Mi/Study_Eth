@@ -16,7 +16,9 @@
 #include "util.h"
 #include "icmp.h"
 
-#define UDP_DBG_PRINT(fmt, ...) debugf("[UDP]:"fmt,  ##__VA_ARGS__)
+#define UDP_DBG_PRINT(fmt, ...) debugf("[UDP ]:"fmt,  ##__VA_ARGS__)
+#define UDP_INFO_PRINT(fmt, ...) infof("[UDP ]:"fmt,  ##__VA_ARGS__)
+#define UDP_ERR_PRINT(fmt, ...) errorf("[UDP ]:"fmt,  ##__VA_ARGS__)
 #define UDP_PCB_STATE_FREE			(0)		// 未使用
 #define UDP_PCB_STATE_OPEN			(1)		// 使用中
 #define UDP_PCB_STATE_CLOSING		(2)		// 解放処理中
@@ -114,13 +116,13 @@ static void udp_input(const struct ip_hdr *iphdr, const uint8_t *data, size_t le
 	
 	// データサイズの検証
 	if (len < sizeof(*hdr)) {
-		errorf("too short");
+		UDP_ERR_PRINT("too short");
 		return;
 	}
 	hdr = (struct udp_hdr *)data;
 	total = ntoh16(hdr->len);
 	if (len < total) {
-		errorf("length error:len=%d, hdr->len=%d", len, total);
+		UDP_ERR_PRINT("length error:len=%d, hdr->len=%d", len, total);
 		return;
 	}
 	// チェックサムの検証 (*) チェックサムが0だった場合はチェックサムの検証をスキップ
@@ -135,7 +137,7 @@ static void udp_input(const struct ip_hdr *iphdr, const uint8_t *data, size_t le
 		psum = ~cksum16((uint16_t*)&pseudo, sizeof(pseudo), 0);
 		// 続けて、UDPデータグラム本体のチェックサム計算 (*) 疑似ヘッダ分のチェックサムを渡すことで途中から続けられる
 		if (cksum16((uint16_t*)hdr, len, psum) != osOK) {
-			errorf("checksum erorr");
+			UDP_ERR_PRINT("checksum erorr");
 			return;
 		}
 	}
@@ -158,7 +160,7 @@ static void udp_input(const struct ip_hdr *iphdr, const uint8_t *data, size_t le
 	entry = osPoolCAlloc(this->udp_pkt_id);
 	if (entry == NULL) {
 		osMutexRelease(this->lock);
-		errorf("memory_alloc error");
+		UDP_ERR_PRINT("memory_alloc error");
 		return;
 	}
 	entry->remote = src;
@@ -166,7 +168,7 @@ static void udp_input(const struct ip_hdr *iphdr, const uint8_t *data, size_t le
 	memcpy(entry+1, hdr+1, entry->len);
 	if (!queue_push(&pcb->queue, (struct queue_entry*)entry)) {
 		osMutexRelease(this->lock);
-		errorf("queue_push error");
+		UDP_ERR_PRINT("queue_push error");
 		return;
 	}
 	osMutexRelease(this->lock);
@@ -202,7 +204,7 @@ static void udp_pcb_release(struct udp_pcb * pcb)
 		if (entry == NULL) {
 			break;
 		}
-		debugf("free_queue entry");
+		UDP_DBG_PRINT("free_queue entry");
 		osPoolFree(this->udp_pkt_id, entry);
 	}
 }
@@ -252,7 +254,7 @@ osStatus udp_init(void)
 	}
 	// UDPモジュールの登録
 	if (ip_protocol_register(IP_PROTOCOL_UDP, udp_input) != osOK) {
-		errorf("ip_protocol_register erorr");
+		UDP_ERR_PRINT("ip_protocol_register erorr");
 		return osErrorResource;
 	}
 	return osOK;
@@ -270,12 +272,12 @@ int32_t udp_cmd_open(void)
 	pcb = udp_pcb_alloc();
 	if (pcb == NULL) {
 		osMutexRelease(this->lock);
-		errorf("udp_pcb_alloc error");
+		UDP_ERR_PRINT("udp_pcb_alloc error");
 		return osErrorResource;
 	}
 	desc = udp_pcb_desc(pcb);
 	osMutexRelease(this->lock);
-	debugf("desc=%d", desc);
+	UDP_DBG_PRINT("desc=%d", desc);
 	return desc;
 }
 
@@ -289,10 +291,10 @@ osStatus udp_cmd_close(int32_t desc)
 	pcb = udp_pcb_get(desc);
 	if (pcb == NULL) {
 		osMutexRelease(this->lock);
-		errorf("pcb not found, desc=%d", desc);
+		UDP_ERR_PRINT("pcb not found, desc=%d", desc);
 		return osErrorResource;
 	}
-	debugf("desc=%d", desc);
+	UDP_DBG_PRINT("desc=%d", desc);
 	udp_pcb_release(pcb);
 	osMutexRelease(this->lock);
 	
@@ -311,18 +313,18 @@ osStatus udp_cmd_bind(int32_t desc, ip_endp_t local)
 	pcb = udp_pcb_get(desc);
 	if (pcb == NULL) {
 		osMutexRelease(this->lock);
-		errorf("pcb not found, desc=%d", desc);
+		UDP_ERR_PRINT("pcb not found, desc=%d", desc);
 		return osErrorResource;
 	}
 	// エンドポイントの衝突チェック
 	exist = udp_pcb_select(local);
 	if (exist != NULL) {
 		osMutexRelease(this->lock);
-		errorf("already in use, desc=%d, want=%s, exist=%s", desc, ip_endp_ntop(local, endp1, sizeof(endp1)), ip_endp_ntop(exist->local, endp2, sizeof(endp2)));
+		UDP_ERR_PRINT("already in use, desc=%d, want=%s, exist=%s", desc, ip_endp_ntop(local, endp1, sizeof(endp1)), ip_endp_ntop(exist->local, endp2, sizeof(endp2)));
 		return osErrorResource;
 	}
 	pcb->local = local;
-	debugf("desc=%d, %s", desc, ip_endp_ntop(pcb->local, endp1, sizeof(endp1)));
+	UDP_DBG_PRINT("desc=%d, %s", desc, ip_endp_ntop(pcb->local, endp1, sizeof(endp1)));
 	osMutexRelease(this->lock);
 	
 	return osOK;

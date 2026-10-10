@@ -26,6 +26,10 @@
 #define IP_PROTOCOL_NUM			(4)			// プロトコル数の最大値
 #define IP_ROUTE_NUM			(16)		// ルーティングエントリの最大値
 
+#define IP_DBG_PRINT(fmt, ...) debugf("[IP  ]:"fmt,  ##__VA_ARGS__)
+#define IP_INFO_PRINT(fmt, ...) infof("[IP  ]:"fmt,  ##__VA_ARGS__)
+#define IP_ERR_PRINT(fmt, ...) errorf("[IP  ]:"fmt,  ##__VA_ARGS__)
+
 const ip_addr_t IP_ADDR_ANY = 0x00000000;			// 0.0.0.0
 const ip_addr_t IP_ADDR_BROADCAST = 0xFFFFFFFF;		// 255.255.255.255
 
@@ -125,14 +129,14 @@ static struct ip_route * ip_route_add(ip_addr_t network, ip_addr_t netmask, ip_a
 	struct ip_route * route;
 	
 	if (nexthop != IP_ADDR_ANY) {
-		infof("%s/%s via %s dev %s src %s",
+		IP_INFO_PRINT("%s/%s via %s dev %s src %s",
 			ip_addr_ntop(network, addr1, sizeof(addr1)),
 			ip_addr_ntop(netmask, addr2, sizeof(addr2)),
 			ip_addr_ntop(nexthop, addr3, sizeof(addr3)),
 			NET_IFACE(iface)->dev->name,
 			ip_addr_ntop(iface->unicast, addr4, sizeof(addr3)));
 	} else {
-		infof("%s/%s dev %s src %s",
+		IP_INFO_PRINT("%s/%s dev %s src %s",
 			ip_addr_ntop(network, addr1, sizeof(addr1)),
 			ip_addr_ntop(netmask, addr2, sizeof(addr2)),
 			NET_IFACE(iface)->dev->name,
@@ -141,7 +145,7 @@ static struct ip_route * ip_route_add(ip_addr_t network, ip_addr_t netmask, ip_a
 	// ルーティングエントリ確保
 	route = osPoolCAlloc(this->route_id);
 	if (route == NULL) {
-		errorf("memory_alloc() failure");
+		IP_ERR_PRINT("memory_alloc() failure");
 		return NULL;
 	}
 	route->network = network;
@@ -171,16 +175,16 @@ static void ip_print(const uint8_t *data, size_t len)
 	offset = ntoh16(hdr->offset);
 	
 	// 表示
-	debugf("v=%d, hl=%d (%d)", v, hl, hlen);
-	debugf("tos=%d", hdr->tos);
-	debugf("total=%d payload=%d)", total, total - hlen);
-	debugf("id=%d", ntoh16(hdr->id));
-	debugf("flags=%x, offset=%d", (offset >> 13), offset & IP_HDR_OFFSET_MASK);
-	debugf("ttl=%d", hdr->ttl);
-	debugf("protocol=%d", hdr->protocol);
-	debugf("sum=%x", ntoh16(hdr->sum));
-	debugf("src=%s", ip_addr_ntop(hdr->src, addr, sizeof(addr)));
-	debugf("dst=%s", ip_addr_ntop(hdr->dst, addr, sizeof(addr)));
+	IP_DBG_PRINT("v=%d, hl=%d (%d)", v, hl, hlen);
+	IP_DBG_PRINT("tos=%d", hdr->tos);
+	IP_DBG_PRINT("total=%d payload=%d)", total, total - hlen);
+	IP_DBG_PRINT("id=%d", ntoh16(hdr->id));
+	IP_DBG_PRINT("flags=%x, offset=%d", (offset >> 13), offset & IP_HDR_OFFSET_MASK);
+	IP_DBG_PRINT("ttl=%d", hdr->ttl);
+	IP_DBG_PRINT("protocol=%d", hdr->protocol);
+	IP_DBG_PRINT("sum=%x", ntoh16(hdr->sum));
+	IP_DBG_PRINT("src=%s", ip_addr_ntop(hdr->src, addr, sizeof(addr)));
+	IP_DBG_PRINT("dst=%s", ip_addr_ntop(hdr->dst, addr, sizeof(addr)));
 }
 
 // 入力ハンドラ
@@ -194,42 +198,42 @@ static void ip_input(const uint8_t *data, size_t len, struct net_device *dev)
 	char addr[IP_ADDR_STR_LEN];
 	struct ip_protocol *proto;
 	
-	debugf("dev=%s, len=%d", dev->name, len);
+	IP_DBG_PRINT("dev=%s, len=%d", dev->name, len);
 	HEXDUMP(data, len);
 	
 	// IPヘッダの最小サイズは20なので、それ以下の場合はエラー
 	if (len < IP_HDR_SIZE_MIN) {
-		errorf("too short");
+		IP_ERR_PRINT("too short");
 		return;
 	}
 	// バージョンチェック
 	hdr = (struct ip_hdr *)data;
 	v = (hdr->vhl >> 4);
 	if (v != IP_VERSION_IPV4) {
-		errorf("    ip version error:v=%d", v);
+		IP_ERR_PRINT("ip version error:v=%d", v);
 		return;
 	}
 	// ヘッダ長のチェック
 	hlen = ((hdr->vhl & 0x0F) << 2);
 	if (len < hlen) {
-		errorf("    header length error:len=%d<hlen=%d", len, hlen);
+		IP_ERR_PRINT("header length error:len=%d<hlen=%d", len, hlen);
 		return;
 	}
 	// チェックサム検証
 	if (cksum16((uint16_t*)hdr, hlen, 0) != 0) {
-		errorf("    chechsum error");
+		IP_ERR_PRINT("chechsum error");
 		return;
 	}
 	// IPパケット長チェック
 	total = ntoh16(hdr->total);
 	if (len < total) {
-		errorf("    total length error:len=%d<total=%d", len, total);
+		IP_ERR_PRINT("total length error:len=%d<total=%d", len, total);
 		return;
 	}
 	// フラグメンテーションのチェック (*) IPでのパケット分割はサポートしない
 	offset = ntoh16(hdr->offset);
 	if (((offset & IP_HDR_FLAG_MF) != 0)||((offset & IP_HDR_OFFSET_MASK) != 0)) {
-		errorf(" flagment dpes mpt support");
+		IP_ERR_PRINT("flagment dpes mpt support");
 		return;
 	}
 	// IPv4のインタフェースを取得
@@ -247,7 +251,7 @@ static void ip_input(const uint8_t *data, size_t len, struct net_device *dev)
 		}
 	}
 	// 表示
-//	debugf("permit, dev=%s, iface=%s", dev->name, ip_addr_ntop(iface->unicast, addr, sizeof(addr)));
+//	IP_DBG_PRINT("permit, dev=%s, iface=%s", dev->name, ip_addr_ntop(iface->unicast, addr, sizeof(addr)));
 	ip_print(data, total);
 	// プロトコルに対応した入力ハンドラを起動
 	for (proto = this->protocols; proto; proto = proto->next) {
@@ -293,7 +297,7 @@ osStatus ip_init(void)
 	}
 	// プロトコル登録
 	if (net_protocol_register(NET_PROTOCOL_TYPE_IP, ip_input) != osOK) {
-		errorf("net_protocol_register failure");
+		IP_ERR_PRINT("net_protocol_register failure");
 		return osErrorResource;
 	}
 	return osOK;
@@ -308,20 +312,20 @@ struct ip_iface *ip_iface_alloc(const char *unicast, const char *netmask)
 	// インタフェース用のメモリを確保
 	iface = osPoolCAlloc(this->iface_id);
 	if (iface == NULL) {
-		errorf("osPoolCAlloc() failure");
+		IP_ERR_PRINT("osPoolCAlloc() failure");
 		return NULL;
 	}
 	// ファミリの設定
 	NET_IFACE(iface)->family = NET_IFACE_FAMILY_IP;
 	// ユニキャストIPアドレスの設定
 	if (ip_addr_pton(unicast, &iface->unicast) != osOK) {
-		errorf("ip_addr_pton failure, addr=%s", unicast);
+		IP_ERR_PRINT("ip_addr_pton failure, addr=%s", unicast);
 		osPoolFree(this->iface_id, iface);
 		return NULL;
 	}
 	// サブネットマスクの設定
 	if (ip_addr_pton(netmask, &iface->netmask) != osOK) {
-		errorf("ip_addr_pton failure, addr=%s", netmask);
+		IP_ERR_PRINT("ip_addr_pton failure, addr=%s", netmask);
 		osPoolFree(this->iface_id, iface);
 		return NULL;
 	}
@@ -340,15 +344,15 @@ osStatus ip_iface_register(struct net_device *dev, struct ip_iface *iface)
 	char addr2[IP_ADDR_STR_LEN];
 	char addr3[IP_ADDR_STR_LEN];
 	
-	infof("dev=%s, %s, %s, %s", dev->name, ip_addr_ntop(iface->unicast, addr1, sizeof(addr1)), ip_addr_ntop(iface->netmask, addr2, sizeof(addr2)), ip_addr_ntop(iface->broadcast, addr3, sizeof(addr3)));
+	IP_INFO_PRINT("dev=%s, %s, %s, %s", dev->name, ip_addr_ntop(iface->unicast, addr1, sizeof(addr1)), ip_addr_ntop(iface->netmask, addr2, sizeof(addr2)), ip_addr_ntop(iface->broadcast, addr3, sizeof(addr3)));
 	// インタフェース登録
 	if (net_device_add_iface(dev, NET_IFACE(iface)) != osOK) {
-		errorf("net_device_add_iface failure");
+		IP_ERR_PRINT("net_device_add_iface failure");
 		return osErrorResource;
 	}
 	// 直結ネットワークの経路を自動登録 (*) 直結ネットワーク内のノードにはルータを解さずに直接送信するため、ネクストホップはIP_ADDR_ANY
 	if (!ip_route_add(iface->unicast & iface->netmask, iface->netmask, IP_ADDR_ANY, iface)) {
-		errorf("ip_route_add failure");
+		IP_ERR_PRINT("ip_route_add failure");
 		return osErrorResource;
 	}
 	iface->next = iface;
@@ -410,7 +414,7 @@ static int ip_output_device(struct ip_iface *iface, const uint8_t *data, size_t 
 	int ret;
 	
 	ip_addr_ntop(target, addr, sizeof(addr));
-	debugf("dev=%s, len=%d, target=%s", NET_IFACE(iface)->dev->name, len, addr);
+	IP_DBG_PRINT("dev=%s, len=%d, target=%s", NET_IFACE(iface)->dev->name, len, addr);
 	// アドレス解決が必要な場合
 	if ((NET_IFACE(iface)->dev->flags & NET_DEVICE_FLAG_NEED_ARP) != 0) {
 		// ブロードキャストIPアドレスの場合
@@ -433,11 +437,11 @@ osStatus ip_route_set_default_gateway(struct ip_iface *iface, const char *gatewa
 	ip_addr_t nexthop;
 	
 	if (ip_addr_pton(gateway, &nexthop) != osOK) {
-		errorf("ip_addr_pton failure");
+		IP_ERR_PRINT("ip_addr_pton failure");
 		return osErrorResource;
 	}
 	if (!ip_route_add(IP_ADDR_ANY, IP_ADDR_ANY, nexthop, iface)) {
-		errorf("ip_route_add failure");
+		IP_ERR_PRINT("ip_route_add failure");
 		return osErrorResource;
 	}
 	return osOK;
@@ -457,42 +461,42 @@ ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t s
 	
 	ip_addr_ntop(src, addr1, sizeof(addr1));
 	ip_addr_ntop(dst, addr2, sizeof(addr2));
-	debugf("%s=>%s, protocol=%d, len=%d", addr1, addr2, protocol, len);
+	IP_DBG_PRINT("%s=>%s, protocol=%d, len=%d", addr1, addr2, protocol, len);
 	
 	// 送信元アドレスの検証
 	// ANYはIPアドレスが指定されていないからの状態を表している。
 	// 送信元が明示的に指定されない かつ 宛先がリミテッドブロードキャストの場合のみエラー
 	// 送信元が指定されていない場合は、送信元アドレスの自動選択する
 	if((src == IP_ADDR_ANY) && (dst == IP_ADDR_BROADCAST)) {
-		errorf("src addr is required for broadcast address");
+		IP_ERR_PRINT("src addr is required for broadcast address");
 		return osErrorResource;
 	}
 	// 送信経路の探索
 	route = ip_route_lookup(dst);
 	if (route == NULL) {
-		errorf("no route to host, dst=%s", addr2);
+		IP_ERR_PRINT("no route to host, dst=%s", addr2);
 		return osErrorResource;
 	}
 	// 送信板フェースを取得
 	iface = route->iface;
 	// 送信元が指定されているけど、送信インターフェースのユニキャストアドレスが同一でなかったらエラー
 	if ((src != IP_ADDR_ANY) || (src != iface->unicast)) {
-		errorf("unable to output with specified source address, src=%s", addr1);
+		IP_ERR_PRINT("unable to output with specified source address, src=%s", addr1);
 		return osErrorResource;
 	}
 	if (NET_IFACE(iface)->dev->mtu < IP_HDR_SIZE_MIN + len) {
-		errorf("too long, dev=%s, mtu=%d<%d", NET_IFACE(iface)->dev->name, NET_IFACE(iface)->dev->mtu, IP_HDR_SIZE_MIN + len);
+		IP_ERR_PRINT("too long, dev=%s, mtu=%d<%d", NET_IFACE(iface)->dev->name, NET_IFACE(iface)->dev->mtu, IP_HDR_SIZE_MIN + len);
 		return osErrorResource;
 	}
 	id = random();
 	plen = ip_build_packet(protocol, data, len, id, 0, iface->unicast, dst, buf, sizeof(this->send_buf));
 	if (plen == -1) {
-		errorf("ip_build_packet failure");
+		IP_ERR_PRINT("ip_build_packet failure");
 		return osErrorResource;
 	}
 	// ネクストホップがある場合は、ネクストホップに送信
 	if (ip_output_device(iface, buf, plen, route->nexthop ? route->nexthop : dst) == -1) {
-		errorf("ip_output_device failure");
+		IP_ERR_PRINT("ip_output_device failure");
 		return osErrorResource;
 	}
 	return plen;
@@ -507,21 +511,21 @@ osStatus ip_protocol_register(uint8_t protocol, ip_protocol_handler_t handler)
 	// 重複チェック
 	for (entry = this->protocols; entry; entry = entry->next) {
 		if (entry->protocol == protocol) {
-			errorf("already exists, protocol=%d", protocol);
+			IP_ERR_PRINT("already exists, protocol=%d", protocol);
 			return osErrorResource;
 		}
 	}
 	// メモリ確保
 	entry = osPoolCAlloc(this->protocol_id);
 	if (entry == NULL) {
-		errorf("osPoolCAlloc() failure");
+		IP_ERR_PRINT("osPoolCAlloc() failure");
 		return osErrorResource;
 	}
 	entry->protocol = protocol;
 	entry->handler = handler;
 	entry->next = this->protocols;
 	this->protocols = entry;
-	infof("success, protocol=%u", protocol);
+	IP_INFO_PRINT("success, protocol=%u", protocol);
 	
 	return osOK;
 }
