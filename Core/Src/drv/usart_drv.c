@@ -197,6 +197,7 @@ EXIT:
 	return ercd;
 }
 
+
 // 受信
 int32_t usart_drv_recv(USART_DRV_DEV dev, uint8_t *p_data, uint32_t size, int32_t tmout)
 {
