@@ -58,6 +58,10 @@ struct arp_cache {
 #define ARP_TIMER_PERIOD			(100)			// 100ms
 #define ARP_CACHE_TIMEOUT			(1000*60*20)	// 20分 (*)一般的には20分らしい
 
+#define ARP_DBG_PRINT(fmt, ...) debugf("[ARP ]:"fmt,  ##__VA_ARGS__)
+#define ARP_INFO_PRINT(fmt, ...) infof("[ARP ]:"fmt,  ##__VA_ARGS__)
+#define ARP_ERR_PRINT(fmt, ...) errorf("[ARP ]:"fmt,  ##__VA_ARGS__)
+
 // 制御ブロック
 typedef struct {
 	osMutexId			lock;						// ミューテックス
@@ -84,7 +88,7 @@ static void arp_cache_delete(struct arp_cache * cache)
 	char addr1[IP_ADDR_STR_LEN];
 	char addr2[IP_ADDR_STR_LEN];
 	
-	debugf("DELETE: pa=%s, ha=%s", ip_addr_ntop(cache->pa, addr1, sizeof(addr1)), ether_drv_addr_ntop(cache->ha, addr2, sizeof(addr2)));
+	ARP_DBG_PRINT("DELETE: pa=%s, ha=%s", ip_addr_ntop(cache->pa, addr1, sizeof(addr1)), ether_drv_addr_ntop(cache->ha, addr2, sizeof(addr2)));
 	// 値の設定
 	cache->state = ARP_CACHE_STATE_FREE;
 	cache->pa = 0;
@@ -134,17 +138,17 @@ static void arp_print(const uint8_t *data, size_t len)
 	
 	message = (struct arp_ether_ip *)data;
 	
-	debugf("hrd=0x%x", ntoh16(message->hdr.hrd));
-	debugf("pro=0x%x", ntoh16(message->hdr.pro));
-	debugf("hln=%d", message->hdr.hln);
-	debugf("pln=%d", message->hdr.pln);
-	debugf("op=%d (%s)", ntoh16(message->hdr.op), arp_opcode_ntoa(message->hdr.op));
-	debugf("sha:%s", ether_drv_addr_ntop(message->sha, addr, sizeof(addr)));
+	ARP_DBG_PRINT("hrd=0x%x", ntoh16(message->hdr.hrd));
+	ARP_DBG_PRINT("pro=0x%x", ntoh16(message->hdr.pro));
+	ARP_DBG_PRINT("hln=%d", message->hdr.hln);
+	ARP_DBG_PRINT("pln=%d", message->hdr.pln);
+	ARP_DBG_PRINT("op=%d (%s)", ntoh16(message->hdr.op), arp_opcode_ntoa(message->hdr.op));
+	ARP_DBG_PRINT("sha:%s", ether_drv_addr_ntop(message->sha, addr, sizeof(addr)));
 	memcpy(&spa, message->spa, sizeof(spa));
-	debugf("spa:%s", ip_addr_ntop(spa, addr, sizeof(addr)));
-	debugf("tha:%s", ether_drv_addr_ntop(message->tha, addr, sizeof(addr)));
+	ARP_DBG_PRINT("spa:%s", ip_addr_ntop(spa, addr, sizeof(addr)));
+	ARP_DBG_PRINT("tha:%s", ether_drv_addr_ntop(message->tha, addr, sizeof(addr)));
 	memcpy(&tpa, message->tpa, sizeof(tpa));
-	debugf("tpa:%s", ip_addr_ntop(tpa, addr, sizeof(addr)));
+	ARP_DBG_PRINT("tpa:%s", ip_addr_ntop(tpa, addr, sizeof(addr)));
 };
 
 // ARP要求
@@ -161,7 +165,7 @@ static osStatus arp_request(struct net_iface *iface, ip_addr_t tpa)
 	memcpy(request.spa, &((struct ip_iface*)iface)->unicast, IP_ADDR_LEN);
 	memset(request.tha, 0, ETHER_ADDR_LEN);
 	memcpy(request.tpa, &tpa, IP_ADDR_LEN);
-	debugf("dev=%s, len=%d", iface->dev->name, sizeof(request));
+	ARP_DBG_PRINT("dev=%s, len=%d", iface->dev->name, sizeof(request));
 	arp_print((uint8_t*)&request, sizeof(request));
 	return net_device_output(iface->dev, ETHER_TYPE_ARP, (uint8_t*)&request, sizeof(request), iface->dev->bloadcast);
 }
@@ -180,7 +184,7 @@ static osStatus arp_reply(struct net_iface *iface, const uint8_t *tha, ip_addr_t
 	memcpy(reply.spa, &((struct ip_iface*)iface)->unicast, IP_ADDR_LEN);
 	memcpy(reply.tha, tha, ETHER_ADDR_LEN);
 	memcpy(reply.tpa, &tpa, IP_ADDR_LEN);
-	debugf("dev=%s, len=%d", iface->dev->name, sizeof(reply));
+	ARP_DBG_PRINT("dev=%s, len=%d", iface->dev->name, sizeof(reply));
 	arp_print((uint8_t*)&reply, sizeof(reply));
 	return net_device_output(iface->dev, ETHER_TYPE_ARP, (uint8_t*)&reply, sizeof(reply), tha);
 }
@@ -195,14 +199,14 @@ static struct arp_cache * arp_cache_update(ip_addr_t pa, const uint8_t *ha)
 	// 空きキャッシュの検索
 	cache = arp_cache_select(pa);
 	if (cache == NULL) {
-		debugf("cache not found");
+		ARP_DBG_PRINT("cache not found");
 		return NULL;
 	}
 	// 値設定
 	cache->state = ARP_CACHE_STATE_RESOLVED;
 	memcpy(cache->ha, ha, ETHER_ADDR_LEN);
 	cache->timestamp = osKernelSysTick();
-	debugf("UPDATE: pa=%s, ha=%s", ip_addr_ntop(pa, addr1, sizeof(addr1)), ether_drv_addr_ntop(ha, addr2, sizeof(addr2)));
+	ARP_DBG_PRINT("UPDATE: pa=%s, ha=%s", ip_addr_ntop(pa, addr1, sizeof(addr1)), ether_drv_addr_ntop(ha, addr2, sizeof(addr2)));
 	
 	return cache;
 }
@@ -238,7 +242,7 @@ static struct arp_cache * arp_cache_insert(ip_addr_t pa, uint8_t *ha)
 	// キャッシュ領域の割り当て
 	cache = arp_cache_alloc();
 	if (cache == NULL) {
-		errorf("arp_cache_alloc failure");
+		ARP_ERR_PRINT("arp_cache_alloc failure");
 		return NULL;
 	}
 	// 値の設定
@@ -246,7 +250,7 @@ static struct arp_cache * arp_cache_insert(ip_addr_t pa, uint8_t *ha)
 	cache->pa = pa;
 	memcpy(cache->ha, ha, ETHER_ADDR_LEN);
 	cache->timestamp = osKernelSysTick();
-	debugf("INSERT: pa=%s, ha=%s", ip_addr_ntop(pa, addr1, sizeof(addr1)), ether_drv_addr_ntop(ha, addr2, sizeof(addr2)));
+	ARP_DBG_PRINT("INSERT: pa=%s, ha=%s", ip_addr_ntop(pa, addr1, sizeof(addr1)), ether_drv_addr_ntop(ha, addr2, sizeof(addr2)));
 	return cache;
 }
 
@@ -261,20 +265,20 @@ static void arp_input(const uint8_t *data, size_t len, struct net_device *dev)
 	
 	// サイズチェック
 	if (len < sizeof(*msg)) {
-		errorf("too short");
+		ARP_ERR_PRINT("too short");
 		return;
 	}
 	msg = (struct arp_ether_ip *)data;
 	// アドレスタイプのチェック (ハードウェアアドレス、プロトコルアドレスが、それぞれEthermetとIPであるかどうか)
 	if ((ntoh16(msg->hdr.hrd) != ARP_HRD_ETHER) || (msg->hdr.hln != ETHER_ADDR_LEN)) {
-		errorf("unsupport hardware address");
+		ARP_ERR_PRINT("unsupport hardware address");
 		return;
 	}
 	if ((ntoh16(msg->hdr.pro) != ARP_PRO_IP) || (msg->hdr.pln != IP_ADDR_LEN)) {
-		errorf("unsupport protocol address");
+		ARP_ERR_PRINT("unsupport protocol address");
 		return;
 	}
-	debugf("dev=%s, len=%d", dev->name, len);
+	ARP_DBG_PRINT("dev=%s, len=%d", dev->name, len);
 	arp_print(data, len);
 	memcpy(&spa, msg->spa, sizeof(spa));
 	memcpy(&tpa, msg->tpa, sizeof(tpa));
@@ -329,7 +333,7 @@ osStatus arp_init(void)
 	
 	// 入力ハンドラの登録
 	if ((ercd = net_protocol_register(NET_PROTOCOL_TYPE_ARP, arp_input)) != osOK) {
-		errorf("net_protocol_register() failed");
+		ARP_ERR_PRINT("net_protocol_register() failed");
 		goto ARP_INIT_END;
 	}
 	
@@ -350,11 +354,11 @@ int arp_resolve(struct net_iface *iface, ip_addr_t pa, uint8_t *ha)
 	
 	// ハードウェアアドレスとプロトコルアドレスのチェック
 	if (iface->dev->type != NET_DEVICE_TYPE_ETHRNET) {
-		debugf("unspported hardware address type");
+		ARP_DBG_PRINT("unspported hardware address type");
 		return ARP_RESOLVE_ERROR;
 	}
 	if (iface->family != NET_IFACE_FAMILY_IP) {
-		debugf("unspported protocol address type");
+		ARP_DBG_PRINT("unspported protocol address type");
 		return ARP_RESOLVE_ERROR;
 	}
 	
@@ -362,11 +366,11 @@ int arp_resolve(struct net_iface *iface, ip_addr_t pa, uint8_t *ha)
 	osMutexWait(this->lock, osWaitForever);
 	cache = arp_cache_select(pa);
 	if (!cache) {
-		debugf("cache not found, pa=%s", ip_addr_ntop(pa, addr1, sizeof(addr1)));
+		ARP_DBG_PRINT("cache not found, pa=%s", ip_addr_ntop(pa, addr1, sizeof(addr1)));
 		// 問い合わせ中の状態のキャッシュを登録
 		cache = arp_cache_alloc();
 		if (cache == NULL) {
-			errorf("arp_cache_alloc failure");
+			ARP_ERR_PRINT("arp_cache_alloc failure");
 			return ARP_RESOLVE_ERROR;
 		}
 		// 値の設定
@@ -384,7 +388,7 @@ int arp_resolve(struct net_iface *iface, ip_addr_t pa, uint8_t *ha)
 	}
 	memcpy(ha, cache->ha, ETHER_ADDR_LEN);
 	osMutexRelease(this->lock);
-	debugf("resolved, pa=%s, ha=%s", ip_addr_ntop(pa, addr1, sizeof(addr1)), ether_drv_addr_ntop(ha, addr2, sizeof(addr2)));
+	ARP_DBG_PRINT("resolved, pa=%s, ha=%s", ip_addr_ntop(pa, addr1, sizeof(addr1)), ether_drv_addr_ntop(ha, addr2, sizeof(addr2)));
 	
 	return ARP_RESOLVE_FOUND;
 }

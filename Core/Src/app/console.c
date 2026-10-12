@@ -306,7 +306,7 @@ void StartConsoleSend(void const * argument)
 			// 解放
 			osMailFree(this->ConsoleSendMailHandle, evt.value.p);
 			// コンソール出力
-			ercd = usart_drv_send(USART_DRV_DEV_CONSOLE, (uint8_t*)print_buf, size, 10);
+			ercd = usart_drv_send(USART_DRV_DEV_CONSOLE, (uint8_t*)print_buf, size, 1000);
 			if (ercd < 0) {
 				// エラー処理
 			}

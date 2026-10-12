@@ -22,6 +22,9 @@
 #define	icmp_type	com.type
 #define	icmp_code	com.code
 #define	icmp_sum	com.sum
+#define ICMP_DBG_PRINT(fmt, ...) debugf("[ICMP]:"fmt,  ##__VA_ARGS__)
+#define ICMP_INFO_PRINT(fmt, ...) infof("[ICMP ]:"fmt,  ##__VA_ARGS__)
+#define ICMP_ERR_PRINT(fmt, ...) errorf("[ICMP ]:"fmt,  ##__VA_ARGS__)
 
 struct icmp_common {
 	uint8_t	type;
@@ -86,23 +89,23 @@ static void icmp_print(const uint8_t *data, size_t len)
 	struct icmp_dest_unreach *unreach;
 	
 	hdr = (struct icmp_hdr*)data;
-	debugf("  type:%d(%s)", hdr->icmp_type, icmp_type_ntoa(hdr->icmp_type));
-	debugf("  code:%d", hdr->icmp_code);
-	debugf("  sum:%x", ntoh16(hdr->icmp_sum));
+	ICMP_DBG_PRINT("type:%d(%s)", hdr->icmp_type, icmp_type_ntoa(hdr->icmp_type));
+	ICMP_DBG_PRINT("code:%d", hdr->icmp_code);
+	ICMP_DBG_PRINT("sum:%x", ntoh16(hdr->icmp_sum));
 	
 	switch (hdr->icmp_type) {
 	case ICMP_TYPE_ECHO_REPLY:
 	case ICMP_TYPE_ECHO:
 		echo = (struct icmp_echo*)hdr;
-		debugf("    id:%d", ntoh16(echo->id));
-		debugf("    seq:%d", ntoh16(echo->seq));
+		ICMP_DBG_PRINT("id:%d", ntoh16(echo->id));
+		ICMP_DBG_PRINT("seq:%d", ntoh16(echo->seq));
 		break;
 	case ICMP_TYPE_DEST_UNREACH:
 		unreach = (struct icmp_dest_unreach*)hdr;
-		debugf("    unused:%d", ntoh32(unreach->unused));
+		ICMP_DBG_PRINT("unused:%d", ntoh32(unreach->unused));
 		break;
 	default:
-		debugf("    dep:%x", ntoh32(hdr->dep));
+		ICMP_DBG_PRINT("dep:%x", ntoh32(hdr->dep));
 		break;
 	}
 }
@@ -117,7 +120,7 @@ osStatus icmp_output(uint8_t type, uint8_t code, uint32_t val, const uint8_t *da
 	
 	// 長すぎる
 	if (ICMP_BUFSIZ < sizeof(*hdr) + len) {
-		errorf("too large");
+		ICMP_ERR_PRINT("too large");
 		return osErrorResource;
 	}
 	// 各フィールドに値を設定
@@ -129,7 +132,7 @@ osStatus icmp_output(uint8_t type, uint8_t code, uint32_t val, const uint8_t *da
 	memcpy(hdr+1, data, len);
 	msg_len = sizeof(*hdr) + len;
 	hdr->icmp_sum = cksum16((uint16_t*)hdr, msg_len, 0);
-	debugf("%s->%s, len=%d", ip_addr_ntop(src, addr1, sizeof(addr1)), ip_addr_ntop(dst, addr2, sizeof(addr2)), len);
+	ICMP_DBG_PRINT("%s->%s, len=%d", ip_addr_ntop(src, addr1, sizeof(addr1)), ip_addr_ntop(dst, addr2, sizeof(addr2)), len);
 	icmp_print(send_buf, msg_len);
 	return ip_output(IP_PROTOCOL_ICMP, send_buf, msg_len, src, dst);
 }
@@ -143,15 +146,15 @@ static void icmp_input(const struct ip_hdr *iphdr, const uint8_t *data, size_t l
 	
 	// 短すぎる
 	if (len < sizeof(sizeof(*hdr))) {
-		errorf("too short");
+		ICMP_ERR_PRINT("too short");
 		return;
 	}
 	// チェックサム検証
 	if (cksum16((uint16_t*)data, len, 0) != 0) {
-		errorf("checksum error");
+		ICMP_ERR_PRINT("checksum error");
 		return;
 	}
-	debugf("%s->%s, len=%d", ip_addr_ntop(iphdr->src, addr1, sizeof(addr1)), ip_addr_ntop(iphdr->dst, addr2, sizeof(addr2)), len);
+	ICMP_DBG_PRINT("%s->%s, len=%d", ip_addr_ntop(iphdr->src, addr1, sizeof(addr1)), ip_addr_ntop(iphdr->dst, addr2, sizeof(addr2)), len);
 	icmp_print(data, len);
 	hdr = (struct icmp_hdr*)data;
 	switch (hdr->icmp_type) {
@@ -172,7 +175,7 @@ osStatus icmp_init(void)
 {
 	// ICMPの入力ハンドラを登録
 	if (ip_protocol_register(IP_PROTOCOL_ICMP, icmp_input) != osOK) {
-		errorf("ip_protocol_register failure");
+		ICMP_ERR_PRINT("ip_protocol_register failure");
 		return osErrorResource;
 	}
 	return osOK;
@@ -184,13 +187,13 @@ static void ping(int argc, char *argv[])
 	ip_addr_t src, dst;
 	
 	if (argc < 2) {
-		errorf("%s [ip address]", argv[0]);
+		ICMP_ERR_PRINT("%s [ip address]", argv[0]);
 		return;
 	}
 	
 	// ユニキャストIPアドレスの設定
 	if (ip_addr_pton(argv[1], &dst) != osOK) {
-		errorf("ip_addr_pton failure, addr=%s", argv[1]);
+		ICMP_ERR_PRINT("ip_addr_pton failure, addr=%s", argv[1]);
 		return;
 	}
 	

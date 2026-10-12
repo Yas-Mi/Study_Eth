@@ -1,5 +1,12 @@
 #include "console.h"
 
+#ifndef MAX
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#endif
+#ifndef MIN
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#endif
+
 #define logf(fmt, ...)  console_printf(fmt, ##__VA_ARGS__)
 
 #define errorf(fmt, ...) logf("[E]:"fmt" (%s, %d, %s)\n", ##__VA_ARGS__, __FILE__, __LINE__, __func__)	// エラー用

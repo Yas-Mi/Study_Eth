@@ -47,7 +47,7 @@ Core/Src/util/util.o: ../Core/Src/util/util.c \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart.h \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart_ex.h \
  ../Core/Src/util/util.h \
- C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h
+ C:/git/Study_eth/Study_Eth/Core/Src/app/console.h
 ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
 ../Core/Inc/FreeRTOSConfig.h:
@@ -96,4 +96,4 @@ Core/Src/util/util.o: ../Core/Src/util/util.c \
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart.h:
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart_ex.h:
 ../Core/Src/util/util.h:
-C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h:
+C:/git/Study_eth/Study_Eth/Core/Src/app/console.h:

@@ -43,34 +43,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := Eth
+BUILD_ARTIFACT_NAME := Study_Eth
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-Eth.elf \
+Study_Eth.elf \
 
 MAP_FILES += \
-Eth.map \
+Study_Eth.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-Eth.list \
+Study_Eth.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: Eth.elf secondary-outputs
+main-build: Study_Eth.elf secondary-outputs
 
 # Tool invocations
-Eth.elf Eth.map: $(OBJS) $(USER_OBJS) C:\Users\hcuym\OneDrive\Desktop\project\Ethernet\Study_Eth\STM32F769NIHX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Eth.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\hcuym\OneDrive\Desktop\project\Ethernet\Study_Eth\STM32F769NIHX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Eth.map" -Wl,--gc-sections -static -Wl,--wrap=osPoolCreate --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Study_Eth.elf Study_Eth.map: $(OBJS) $(USER_OBJS) C:\git\Study_eth\Study_Eth\STM32F769NIHX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Study_Eth.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\git\Study_eth\Study_Eth\STM32F769NIHX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Study_Eth.map" -Wl,--gc-sections -static -Wl,--wrap=osPoolCreate --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -79,14 +79,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-Eth.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "Eth.list"
+Study_Eth.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "Study_Eth.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) Eth.elf Eth.list Eth.map default.size.stdout
+	-$(RM) Study_Eth.elf Study_Eth.list Study_Eth.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

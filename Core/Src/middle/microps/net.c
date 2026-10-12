@@ -13,6 +13,9 @@
 #define NET_DEV_NUM		(4)
 #define NET_PROTO_NUM	(4)
 #define NET_QUEUE_NUM	(16)
+#define NET_DBG_PRINT(fmt, ...) debugf("[NET ]:"fmt,  ##__VA_ARGS__)
+#define NET_INFO_PRINT(fmt, ...) infof("[NET ]:"fmt,  ##__VA_ARGS__)
+#define NET_ERR_PRINT(fmt, ...) errorf("[NET ]:"fmt,  ##__VA_ARGS__)
 
 // プロトコル構造体
 struct net_protocol {
@@ -53,7 +56,7 @@ struct net_device *net_device_alloc(void)
 	// ネットワークデバイス用のメモリを確保
 	dev = osPoolCAlloc(this->net_dev_id);
 	if (dev == NULL) {
-		errorf("osPoolCAlloc() failure");
+		NET_ERR_PRINT("osPoolCAlloc() failure");
 		return NULL;
 	}
 	return dev;
@@ -68,7 +71,7 @@ struct net_protocol *net_protocol_alloc(void)
 	// ネットワークプロトコルのメモリを確保
 	proto = osPoolCAlloc(this->net_proto_id);
 	if (proto == NULL) {
-		errorf("osPoolCAlloc() failure");
+		NET_ERR_PRINT("osPoolCAlloc() failure");
 		return NULL;
 	}
 	return proto;
@@ -87,7 +90,7 @@ osStatus net_device_register(struct net_device *dev)
 	dev->next = this->devices;
 	this->devices = dev;
 	
-	infof("registered, dev=%s", dev->name);
+	NET_INFO_PRINT("registered, dev=%s", dev->name);
 	
 	return osOK;
 }
@@ -96,15 +99,15 @@ osStatus net_device_register(struct net_device *dev)
 // 説明：引数で渡されたネットワークデバイスを起動させ、稼働フラグをセット
 static osStatus net_device_open(struct net_device *dev)
 {
-	infof("dev=%s", dev->name);
+	NET_INFO_PRINT("dev=%s", dev->name);
 	if (NET_DEVICE_IS_UP(dev)) {
-		errorf("already opend, dev=%s", dev->name);
+		NET_ERR_PRINT("already opend, dev=%s", dev->name);
 		return osErrorResource;
 	}
 	// デバイス固有のオープン関数を実行
 	if (dev->ops->open != NULL) {
 		if (dev->ops->open(dev) != osOK) {
-			errorf("failure, dev=%s", dev->name);
+			NET_ERR_PRINT("failure, dev=%s", dev->name);
 			return osErrorResource;
 		}
 	}
@@ -117,15 +120,15 @@ static osStatus net_device_open(struct net_device *dev)
 // 説明：引数で渡されたネットワークデバイスを起動させ、稼働フラグをセット
 static osStatus net_device_close(struct net_device *dev)
 {
-	infof("dev=%s", dev->name);
+	NET_INFO_PRINT("dev=%s", dev->name);
 	if (NET_DEVICE_IS_UP(dev) != 0) {
-		errorf("not opend, dev=%s", dev->name);
+		NET_ERR_PRINT("not opend, dev=%s", dev->name);
 		return osErrorResource;
 	}
 	// デバイス固有のクローズ関数を実行
 	if (dev->ops->close != NULL) {
 		if (dev->ops->close(dev) != osOK) {
-			errorf("failure, dev=%s", dev->name);
+			NET_ERR_PRINT("failure, dev=%s", dev->name);
 			return osErrorResource;
 		}
 	}
@@ -143,7 +146,7 @@ static struct net_protocol_queue_entry * net_protocol_queue_push(struct net_prot
 	// メモリ確保
 	entry = osPoolCAlloc(this->net_queue_id);
 	if (entry == NULL) {
-		errorf("osPoolCAlloc() failure");
+		NET_ERR_PRINT("osPoolCAlloc() failure");
 		return NULL;
 	}
 	entry->dev = dev;
@@ -178,7 +181,7 @@ osStatus net_init(void)
 {
 	NET_CB *this = get_myself();
 	
-	infof("initialize...");
+	NET_INFO_PRINT("initialize...");
 	
 	// 制御ブロック初期化
 	memset(this, 0, sizeof(NET_CB));
@@ -208,25 +211,25 @@ osStatus net_init(void)
 	}
 	// arp初期化
 	if (arp_init() != osOK) {
-		errorf("arp_init() failure");
+		NET_ERR_PRINT("arp_init() failure");
 		return osErrorResource;	
 	}
 	// ip初期化
 	if (ip_init() != osOK) {
-		errorf("ip_init() failure");
+		NET_ERR_PRINT("ip_init() failure");
 		return osErrorResource;	
 	}
 	// icmp初期化
 	if (icmp_init() != osOK) {
-		errorf("icmp_init() failure");
+		NET_ERR_PRINT("icmp_init() failure");
 		return osErrorResource;	
 	}
 	// udp初期化
 	if (udp_init() != osOK) {
-		errorf("udp_init() failure");
+		NET_ERR_PRINT("udp_init() failure");
 		return osErrorResource;	
 	}
-	infof("success...");
+	NET_INFO_PRINT("success...");
 	
 	return osOK;
 }
@@ -236,12 +239,12 @@ osStatus net_run(void)
 	NET_CB *this = get_myself();
 	struct net_device *dev;
 	
-	infof("startup...");
+	NET_INFO_PRINT("startup...");
 	// オープン
 	for (dev = this->devices; dev; dev = dev->next) {
 		net_device_open(dev);
 	}
-	infof("success...");
+	NET_INFO_PRINT("success...");
 	
 	return osOK;
 }
@@ -251,12 +254,12 @@ osStatus net_shutdown(void)
 	NET_CB *this = get_myself();
 	struct net_device *dev;
 	
-	infof("shutting down...");
+	NET_INFO_PRINT("shutting down...");
 	// クローズ
 	for (dev = this->devices; dev; dev = dev->next) {
 		net_device_close(dev);
 	}	
-	infof("success...");
+	NET_INFO_PRINT("success...");
 	
 	return osOK;
 }
@@ -264,26 +267,26 @@ osStatus net_shutdown(void)
 // ネットワークデバイスへの出力
 osStatus net_device_output(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst)
 {
-	debugf("dev=%s, type=0x%x, len=%zu", dev->name, type, len);
+	NET_DBG_PRINT("dev=%s, type=0x%x, len=%zu", dev->name, type, len);
 	
 	// オープンしてなかったらダメ
 	if (!NET_DEVICE_IS_UP(dev)) {
-		errorf("not opend, dev=%s", dev->name);
+		NET_ERR_PRINT("not opend, dev=%s", dev->name);
 		return osErrorResource;
 	}
 	// mtu以上だったらダメ
 	if (dev->mtu < len) {
-		errorf("too long, dev=%s, mtu=%u, len=%zu", dev->name, dev->mtu, len);
+		NET_ERR_PRINT("too long, dev=%s, mtu=%u, len=%zu", dev->name, dev->mtu, len);
 		return osErrorResource;
 	}
 	// output関数ちゃんとある？
 	if (dev->ops->output == NULL) {
-		errorf("output callback function is not set, dev=%s", dev->name);
+		NET_ERR_PRINT("output callback function is not set, dev=%s", dev->name);
 		return osErrorResource;
 	}
 	// output関数実行
 	if (dev->ops->output(dev, type, data, len, dst) != osOK) {
-		errorf("failure, dev=%s, len=%d", dev->name, len);
+		NET_ERR_PRINT("failure, dev=%s, len=%d", dev->name, len);
 		return osErrorResource;
 	}
 	
@@ -296,7 +299,7 @@ osStatus net_input(uint16_t type, const uint8_t *data, size_t len, struct net_de
 	NET_CB *this = get_myself();
 	struct net_protocol *proto;
 	
-	debugf("dev=%s, type=%x, len=%d", dev->name, type, len);
+	NET_DBG_PRINT("dev=%s, type=%x, len=%d", dev->name, type, len);
 	//HEXDUMP(data, len);
 	
 	// タイプによって通知する上位層を決める
@@ -304,7 +307,7 @@ osStatus net_input(uint16_t type, const uint8_t *data, size_t len, struct net_de
 		if (type == proto->type) {
 			proto->handler(data, len, dev);
 //			if (!net_protocol_queue_push(proto, data, len, dev)) {
-//				errorf("net_protocol_queue_push failure()");
+//				NET_ERR_PRINT("net_protocol_queue_push failure()");
 //				return osErrorResource;
 //			}
 			return osOK;
@@ -323,21 +326,21 @@ osStatus net_protocol_register(uint16_t type, net_prtocol_handler_t handler)
 	// 既に登録されているかをチェック
 	for (proto = this->protocols; proto; proto = proto->next) {
 		if (type == proto->type) {
-			errorf("already registerd, type=%s", proto->type);
+			NET_ERR_PRINT("already registerd, type=%s", proto->type);
 			return osErrorResource;	
 		}
 	}
 	// メモリ確保
 	proto = net_protocol_alloc();
 	if (proto == NULL) {
-		errorf("net_protocol_alloc() failure");
+		NET_ERR_PRINT("net_protocol_alloc() failure");
 		return osErrorResource;
 	}
 	proto->type = type;
 	proto->handler = handler;
 	proto->next = this->protocols;
 	this->protocols = proto;
-	infof("shutting down...");
+	NET_INFO_PRINT("shutting down...");
 	
 	return osOK;
 }
@@ -350,7 +353,7 @@ osStatus net_device_add_iface(struct net_device *dev, struct net_iface *iface)
 	// 重複登録のチェック
 	for (entry = dev->ifaces; entry; entry = entry->next) {
 		if (entry->family == iface->family) {
-			errorf("already exist, dev=%s、family=%d", dev->name, entry->family);
+			NET_ERR_PRINT("already exist, dev=%s、family=%d", dev->name, entry->family);
 			return osErrorResource;
 		}
 	}
@@ -358,7 +361,7 @@ osStatus net_device_add_iface(struct net_device *dev, struct net_iface *iface)
 	iface->dev = dev;
 	dev->ifaces = iface;
 	
-	infof("success, dev=%s", dev->name);
+	NET_INFO_PRINT("success, dev=%s", dev->name);
 	
 	return osOK;
 	
