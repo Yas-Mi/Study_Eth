@@ -25,6 +25,9 @@
 #define IP_PROTOCOL_TCP		(6)
 #define IP_PROTOCOL_UDP		(17)
 
+#define IP_ENDP_DYNAMIC_PORT_MIN	(49152)
+#define IP_ENDP_DYNAMIC_PORT_MAX	(65535)
+
 struct net_device;	/* forward declaration */
 
 typedef uint32_t ip_addr_t;
@@ -67,5 +70,6 @@ extern struct ip_iface *ip_iface_select(ip_addr_t addr);
 extern osStatus ip_protocol_register(uint8_t protocol, ip_protocol_handler_t handler);
 extern osStatus ip_route_set_default_gateway(struct ip_iface *iface, const char *gateway);
 extern ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_addr_t dst);
+extern struct ip_iface *ip_route_get_iface(ip_addr_t dst);
 
 #endif /* SRC_MIDDLE_MICROPS_IP_H_ */

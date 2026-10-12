@@ -27,6 +27,12 @@ osStatus util_init(void)
 	{
 		while(1){};
 	}
+	// ネットワークプロトコル用のメモリプール確保
+	osPoolDef(MemPool, 64, struct queue_entry);
+	this->queue_id = osPoolCreate (osPool (MemPool));
+	if (this->queue_id == NULL) {
+		return;
+	}
 	return osOK;
 }
 
@@ -130,12 +136,6 @@ void queue_init(struct queue *queue)
 	queue->head = NULL;
 	queue->tail = NULL;
 	queue->num = 0;
-	// ネットワークプロトコル用のメモリプール確保
-	osPoolDef(MemPool, 64, struct queue_entry);
-	this->queue_id = osPoolCreate (osPool (MemPool));
-	if (this->queue_id == NULL) {
-		return;
-	}
 }
 
 // プッシュ

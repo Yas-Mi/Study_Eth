@@ -195,7 +195,7 @@ static void ip_input(const uint8_t *data, size_t len, struct net_device *dev)
 	uint8_t v;
 	uint16_t hlen, total, offset;
 	struct ip_iface *iface;
-	char addr[IP_ADDR_STR_LEN];
+	//char addr[IP_ADDR_STR_LEN];
 	struct ip_protocol *proto;
 	
 	IP_DBG_PRINT("dev=%s, len=%d", dev->name, len);
@@ -469,35 +469,35 @@ ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t s
 	// 送信元が指定されていない場合は、送信元アドレスの自動選択する
 	if((src == IP_ADDR_ANY) && (dst == IP_ADDR_BROADCAST)) {
 		IP_ERR_PRINT("src addr is required for broadcast address");
-		return osErrorResource;
+		return -1;
 	}
 	// 送信経路の探索
 	route = ip_route_lookup(dst);
 	if (route == NULL) {
 		IP_ERR_PRINT("no route to host, dst=%s", addr2);
-		return osErrorResource;
+		return -1;
 	}
 	// 送信板フェースを取得
 	iface = route->iface;
 	// 送信元が指定されているけど、送信インターフェースのユニキャストアドレスが同一でなかったらエラー
-	if ((src != IP_ADDR_ANY) || (src != iface->unicast)) {
+	if ((src != IP_ADDR_ANY) && (src != iface->unicast)) {
 		IP_ERR_PRINT("unable to output with specified source address, src=%s", addr1);
-		return osErrorResource;
+		return -1;
 	}
 	if (NET_IFACE(iface)->dev->mtu < IP_HDR_SIZE_MIN + len) {
 		IP_ERR_PRINT("too long, dev=%s, mtu=%d<%d", NET_IFACE(iface)->dev->name, NET_IFACE(iface)->dev->mtu, IP_HDR_SIZE_MIN + len);
-		return osErrorResource;
+		return -1;
 	}
 	id = random();
 	plen = ip_build_packet(protocol, data, len, id, 0, iface->unicast, dst, buf, sizeof(this->send_buf));
 	if (plen == -1) {
 		IP_ERR_PRINT("ip_build_packet failure");
-		return osErrorResource;
+		return -1;
 	}
 	// ネクストホップがある場合は、ネクストホップに送信
 	if (ip_output_device(iface, buf, plen, route->nexthop ? route->nexthop : dst) == -1) {
 		IP_ERR_PRINT("ip_output_device failure");
-		return osErrorResource;
+		return -1;
 	}
 	return plen;
 }

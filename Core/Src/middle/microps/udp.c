@@ -25,6 +25,8 @@
 #define UDP_PCB_SIZE				(16)
 #define UDP_PACKET_NUM				(4)		// UDPパケット最大保持数
 
+#define UDP_RECV_DONE	(0x00000001)
+
 // UDPヘッダ
 struct udp_hdr {
 	uint16_t src;
@@ -44,9 +46,10 @@ struct pseudo_hdr {
 
 // UDP制御ブロック構造体
 struct udp_pcb {
-	int state;			// 状態
-	ip_endp_t	local;	// ローカル側のエンドポイント
-	struct queue queue;	// 受信キュー
+	int			state;			// 状態
+	ip_endp_t	local;			// ローカル側のエンドポイント
+	struct		queue queue;	// 受信キュー
+	osThreadId	thread_id;		// タスクID
 };
 
 // キューエントリ構造体
@@ -121,7 +124,7 @@ static void udp_input(const struct ip_hdr *iphdr, const uint8_t *data, size_t le
 	}
 	hdr = (struct udp_hdr *)data;
 	total = ntoh16(hdr->len);
-	if (len < total) {
+	if ((total < sizeof(*hdr)) || (len < total)) {
 		UDP_ERR_PRINT("length error:len=%d, hdr->len=%d", len, total);
 		return;
 	}
@@ -136,7 +139,7 @@ static void udp_input(const struct ip_hdr *iphdr, const uint8_t *data, size_t le
 		// いったん疑似ヘッダ分のチェックサムを計算
 		psum = ~cksum16((uint16_t*)&pseudo, sizeof(pseudo), 0);
 		// 続けて、UDPデータグラム本体のチェックサム計算 (*) 疑似ヘッダ分のチェックサムを渡すことで途中から続けられる
-		if (cksum16((uint16_t*)hdr, len, psum) != osOK) {
+		if (cksum16((uint16_t*)hdr, total, psum) != osOK) {
 			UDP_ERR_PRINT("checksum erorr");
 			return;
 		}
@@ -164,14 +167,62 @@ static void udp_input(const struct ip_hdr *iphdr, const uint8_t *data, size_t le
 		return;
 	}
 	entry->remote = src;
-	entry->len = len = sizeof(*hdr);
+	entry->len = total - sizeof(*hdr);
 	memcpy(entry+1, hdr+1, entry->len);
 	if (!queue_push(&pcb->queue, (struct queue_entry*)entry)) {
+		osPoolFree(this->udp_pkt_id, entry);
 		osMutexRelease(this->lock);
 		UDP_ERR_PRINT("queue_push error");
 		return;
 	}
+	// 待機しているタスクがいる場合は起こす
+	if (pcb->thread_id != NULL) {
+		osSignalSet(pcb->thread_id, UDP_RECV_DONE);
+	}
 	osMutexRelease(this->lock);
+}
+
+static ssize_t udp_output(ip_endp_t src, ip_endp_t dst, const uint8_t *data, size_t len)
+{
+	uint8_t buf[IP_PAYLOAD_SIZE_MAX];
+	struct udp_hdr *hdr;
+	struct pseudo_hdr pseudo;
+	uint16_t total, psum = 0;
+	char endp1[IP_ENDP_STR_LEN];
+	char endp2[IP_ENDP_STR_LEN];
+	
+	// データサイズのチェック
+	if (IP_PAYLOAD_SIZE_MAX < sizeof(*hdr)+len) {
+		UDP_ERR_PRINT("too long");
+		return -1;
+	}
+	// UDPデータグラムの構築
+	hdr = (struct udp_hdr *)buf;
+	hdr->src = src.port;
+	hdr->dst = dst.port;
+	total = sizeof(*hdr) + len;
+	hdr->len = hton16(total);
+	hdr->sum = 0;
+	memcpy(hdr+1, data, len);
+	pseudo.src = src.addr;
+	pseudo.dst = dst.addr;
+	pseudo.zero = 0;
+	pseudo.protocol = IP_PROTOCOL_UDP;
+	pseudo.len = hton16(total);
+	// チェックサム計算
+	psum = ~cksum16((uint16_t*)&pseudo, sizeof(pseudo), 0);
+	hdr->sum = cksum16((uint16_t*)hdr, total, psum);
+	if (hdr->sum == 0) {
+		hdr->sum = 0xffff;
+	}
+	UDP_DBG_PRINT("%s=>%s, len=%d", ip_endp_ntop(src, endp1, sizeof(endp1)), ip_endp_ntop(dst, endp2, sizeof(endp2)), total);
+	udp_print(buf, total);
+	// IPへ渡す
+	if (ip_output(IP_PROTOCOL_UDP, buf, total, src.addr, dst.addr) < 0) {
+		UDP_ERR_PRINT("ip_output() failure");
+		return -1;
+	}
+	return len;
 }
 
 // 制御ブロックの割り当て
@@ -286,6 +337,7 @@ osStatus udp_cmd_close(int32_t desc)
 {
 	UDP_CB *this = get_myself();
 	struct udp_pcb* pcb;
+	int32_t signals;
 	
 	osMutexWait(this->lock, osWaitForever);
 	pcb = udp_pcb_get(desc);
@@ -295,6 +347,18 @@ osStatus udp_cmd_close(int32_t desc)
 		return osErrorResource;
 	}
 	UDP_DBG_PRINT("desc=%d", desc);
+	if (pcb->thread_id != NULL) {
+		pcb->state = UDP_PCB_STATE_CLOSING;
+		signals = osSignalSet(pcb->thread_id, UDP_RECV_DONE);
+		if (signals < 0) {
+			pcb->state = UDP_PCB_STATE_OPEN;
+			osMutexRelease(this->lock);
+			UDP_ERR_PRINT("osSignalSet failure, desc=%d", desc);
+			return osErrorOS;
+		}
+		osMutexRelease(this->lock);
+		return osOK;
+	}
 	udp_pcb_release(pcb);
 	osMutexRelease(this->lock);
 	
@@ -328,4 +392,119 @@ osStatus udp_cmd_bind(int32_t desc, ip_endp_t local)
 	osMutexRelease(this->lock);
 	
 	return osOK;
+}
+
+// RECVFROM
+ssize_t udp_cmd_recvfrom(int32_t desc, uint8_t *buf, size_t size, ip_endp_t *remote)
+{
+	UDP_CB *this = get_myself();
+	struct udp_pcb* pcb;
+	struct udp_queue_entry *entry;
+	ssize_t len;
+	osEvent evt;
+	
+	osMutexWait(this->lock, osWaitForever);
+	// 制御ブロック取得委
+	pcb = udp_pcb_get(desc);
+	if (pcb == NULL) {
+		osMutexRelease(this->lock);
+		UDP_ERR_PRINT("pcb not found, desc=%d", desc);
+		return -1;
+	}
+	// 受信データがあるまでループ
+	while(1) {
+		// 受信データ取得
+		entry = (struct udp_queue_entry*)queue_pop(&pcb->queue);
+		// 受信データがなかったら終了
+		if (entry != NULL) {
+			UDP_DBG_PRINT("queue_pop: success, desc=%d, num=%d", desc, pcb->queue.num);
+			break;
+		}
+		UDP_DBG_PRINT("queue_pop: empty, desc=%d, sleep task... good bye", desc);
+		// 受信待機
+		pcb->thread_id = osThreadGetId();	// 起こしてもらうようにタスクIDを覚えておく
+		osMutexRelease(this->lock);
+		evt = osSignalWait(UDP_RECV_DONE, osWaitForever);
+		osMutexWait(this->lock, osWaitForever);
+		if (pcb->state == UDP_PCB_STATE_CLOSING) {
+			UDP_DBG_PRINT("closed");
+			udp_pcb_release(pcb);
+			osMutexRelease(this->lock);
+			return -1;
+		}
+		pcb->thread_id = NULL;
+		if (evt.status != osEventSignal) {
+			osMutexRelease(this->lock);
+			UDP_ERR_PRINT("interrupted");
+			return -1;
+		}
+		// 起床
+		UDP_DBG_PRINT("task wakeup");
+	}
+	osMutexRelease(this->lock);
+	// リモートエンドポイントを返す
+	if (remote != NULL) {
+		*remote = entry->remote;
+	}
+	// 受信データのコピー
+	len = MIN(size, entry->len);
+	memcpy(buf, entry+1, len);
+	// エントリ解放
+	osPoolFree(this->udp_pkt_id, entry);
+	
+	return len;
+}
+
+// SENDTO
+ssize_t udp_cmd_sendto(int32_t desc, uint8_t *data, size_t len, ip_endp_t remote)
+{
+	UDP_CB *this = get_myself();
+	struct udp_pcb* pcb;
+	ip_endp_t local;
+	uint32_t p;
+	struct ip_iface *iface;
+	char addr[IP_ADDR_STR_LEN];
+	
+	osMutexWait(this->lock, osWaitForever);
+	// 制御ブロック取得
+	pcb = udp_pcb_get(desc);
+	if (pcb == NULL) {
+		osMutexRelease(this->lock);
+		UDP_ERR_PRINT("pcb not found, desc=%d", desc);
+		return -1;
+	}
+	// ポートに有効な値が設定査定ない場合
+	local = pcb->local;
+	if (local.port == 0) {
+		// 使用可能なポートを自動的に選択
+		for (p = IP_ENDP_DYNAMIC_PORT_MIN; p <= IP_ENDP_DYNAMIC_PORT_MAX; p++) {
+			local.port = hton16(p);
+			// 使用されてない場合はそれを使用
+			if (udp_pcb_select(local) == NULL) {
+				pcb->local.port = local.port;
+				UDP_DBG_PRINT("dynamic assign local port, port=%d", ntoh16(pcb->local.port));
+				break;
+			}
+		}
+		// 全ポート使われてた
+		if (IP_ENDP_DYNAMIC_PORT_MAX < p) {
+			UDP_DBG_PRINT("failed to dinamic assign local port, addr=%s", ip_addr_ntop(local.addr, addr, sizeof(addr)));
+			osMutexRelease(this->lock);
+			return -1;
+		}
+		// ローカルエンドポイントがIP_ADDR_ANY(0.0.0.0)の場合
+		if (local.addr == IP_ADDR_ANY) {
+			// リモートエンドポイントへの送信で使用される経路情報から取得
+			iface = ip_route_get_iface(remote.addr);
+			if (iface == NULL) {
+				UDP_ERR_PRINT("iface not found that can reach foreign address, addr=%s", ip_addr_ntop(remote.addr, addr, sizeof(addr)));
+				osMutexRelease(this->lock);
+				return -1;
+			}
+			local.addr = iface->unicast;
+			UDP_DBG_PRINT("select local address, addr=%s", ip_addr_ntop(local.addr, addr, sizeof(addr)));
+		}
+	}
+	osMutexRelease(this->lock);
+	return udp_output(local, remote, data, len);
 }

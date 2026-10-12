@@ -3,7 +3,7 @@
 ../Core/Src/middle/microps/ip.c:105:26:ip_route_lookup	40	static
 ../Core/Src/middle/microps/ip.c:122:26:ip_route_add	120	static
 ../Core/Src/middle/microps/ip.c:162:13:ip_print	64	static
-../Core/Src/middle/microps/ip.c:191:13:ip_input	88	static
+../Core/Src/middle/microps/ip.c:191:13:ip_input	72	static
 ../Core/Src/middle/microps/ip.c:274:10:ip_init	48	static
 ../Core/Src/middle/microps/ip.c:307:18:ip_iface_alloc	32	static
 ../Core/Src/middle/microps/ip.c:340:10:ip_iface_register	96	static

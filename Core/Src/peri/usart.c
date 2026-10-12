@@ -13,7 +13,7 @@
 
 
 // マクロ
-#define BUFF_SIZE	(2048)	// リングバッファのサイズ
+#define BUFF_SIZE	(4096)	// リングバッファのサイズ
 #define USART_CLK	(96*1000*1000)	// 96MHz
 
 // 状態定義
@@ -96,10 +96,7 @@ void usart_common_handler(USART_CH ch)
 	// エラーチェック
 	if (p_reg->ISR & (USART_ISR_PE | USART_ISR_FE | USART_ISR_NE | USART_ISR_ORE)) {
 		// エラーフラグのクリア
-		set_bit(p_reg->ICR, USART_ICR_PECF);
-		set_bit(p_reg->ICR, USART_ICR_FECF);
-		set_bit(p_reg->ICR, USART_ICR_NCF);
-		set_bit(p_reg->ICR, USART_ICR_ORECF);
+		p_reg->ICR |= (USART_ICR_PECF | USART_ICR_FECF | USART_ICR_NCF | USART_ICR_ORECF);
 		// エラーコールバック通知
 		if (this->err_cb != NULL) {
 			this->err_cb(ch, this->p_ctx);

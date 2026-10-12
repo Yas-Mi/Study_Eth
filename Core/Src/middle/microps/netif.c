@@ -55,7 +55,6 @@ static const ETH_DRV_CH netif_ch_mapping_tbl[] = {
 
 struct net_device *netif_init(char *name, const char *addr)
 {
-	NEIF_CB *this = get_myself();
 	struct net_device *dev;
 	
 	NETIF_INFO_PRINT("name=%s, addr=%s", name, addr ? addr : "(none)");
@@ -119,7 +118,7 @@ NETIF_OPEN_END:
 static osStatus netif_close(struct net_device *dev)
 {
 	ETH_DRV_CH ch;
-	osStatus ercd;
+	osStatus ercd = osOK;
 	
 	// ch情報取得g
 	ch = *((ETH_DRV_CH*)(dev->priv));

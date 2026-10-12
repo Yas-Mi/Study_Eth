@@ -46,9 +46,9 @@ Core/Src/middle/microps/wrap.o: ../Core/Src/middle/microps/wrap.c \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h \
+ C:/git/Study_eth/Study_Eth/Core/Src/app/console.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h \
- C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/util/util.h
+ C:/git/Study_eth/Study_Eth/Core/Src/util/util.h
 ../Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f7xx.h:
 ../Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f769xx.h:
 ../Drivers/CMSIS/Include/core_cm7.h:
@@ -96,6 +96,6 @@ Core/Src/middle/microps/wrap.o: ../Core/Src/middle/microps/wrap.c \
 ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h:
-C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h:
+C:/git/Study_eth/Study_Eth/Core/Src/app/console.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h:
-C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/util/util.h:
+C:/git/Study_eth/Study_Eth/Core/Src/util/util.h:

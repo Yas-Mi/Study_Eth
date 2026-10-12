@@ -1,9 +1,9 @@
 ../Core/Src/peri/usart.c:86:6:usart_common_handler	32	static
-../Core/Src/peri/usart.c:148:6:USART1_IRQHandler	8	static
-../Core/Src/peri/usart.c:152:6:USART2_IRQHandler	8	static
-../Core/Src/peri/usart.c:181:9:usart_config	24	static
-../Core/Src/peri/usart.c:225:10:usart_init	16	static
-../Core/Src/peri/usart.c:245:10:usart_open	32	static
-../Core/Src/peri/usart.c:285:10:usart_close	16	static
-../Core/Src/peri/usart.c:292:9:usart_send	40	static,ignoring_inline_asm
-../Core/Src/peri/usart.c:351:9:usart_recv	40	static,ignoring_inline_asm
+../Core/Src/peri/usart.c:145:6:USART1_IRQHandler	8	static
+../Core/Src/peri/usart.c:149:6:USART2_IRQHandler	8	static
+../Core/Src/peri/usart.c:178:9:usart_config	24	static
+../Core/Src/peri/usart.c:222:10:usart_init	16	static
+../Core/Src/peri/usart.c:242:10:usart_open	32	static
+../Core/Src/peri/usart.c:282:10:usart_close	16	static
+../Core/Src/peri/usart.c:289:9:usart_send	40	static,ignoring_inline_asm
+../Core/Src/peri/usart.c:348:9:usart_recv	40	static,ignoring_inline_asm

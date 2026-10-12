@@ -16,8 +16,8 @@ Core/Src/middle/microps/net.o: ../Core/Src/middle/microps/net.c \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/util/util.h \
- C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h \
+ C:/git/Study_eth/Study_Eth/Core/Src/util/util.h \
+ C:/git/Study_eth/Study_Eth/Core/Src/app/console.h \
  ../Core/Src/middle/microps/ip.h ../Core/Src/middle/microps/icmp.h \
  ../Core/Src/middle/microps/arp.h ../Core/Src/middle/microps/udp.h \
  ../Core/Src/middle/microps/net.h
@@ -38,8 +38,8 @@ Core/Src/middle/microps/net.o: ../Core/Src/middle/microps/net.c \
 ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h:
-C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/util/util.h:
-C:/Users/hcuym/OneDrive/Desktop/project/Ethernet/Study_Eth/Core/Src/app/console.h:
+C:/git/Study_eth/Study_Eth/Core/Src/util/util.h:
+C:/git/Study_eth/Study_Eth/Core/Src/app/console.h:
 ../Core/Src/middle/microps/ip.h:
 ../Core/Src/middle/microps/icmp.h:
 ../Core/Src/middle/microps/arp.h:

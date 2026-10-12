@@ -1,0 +1,11 @@
+{
+    "editor.hover.enabled": "off",
+    "cSpell.enabled": true,
+    "cSpell.language": "en,ja",
+    "cSpell.enableFiletypes": {
+        "c": false,
+        "cpp": false,
+        "h": false,
+        "hpp": false
+    }
+}
