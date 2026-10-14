@@ -7,6 +7,7 @@
 #include "icmp.h"
 #include "arp.h"
 #include "udp.h"
+#include "tcp.h"
 
 #include "net.h"
 
@@ -227,6 +228,11 @@ osStatus net_init(void)
 	// udp初期化
 	if (udp_init() != osOK) {
 		NET_ERR_PRINT("udp_init() failure");
+		return osErrorResource;	
+	}
+	// tcp初期化
+	if (tcp_init() != osOK) {
+		NET_ERR_PRINT("tcp_init() failure");
 		return osErrorResource;	
 	}
 	NET_INFO_PRINT("success...");
