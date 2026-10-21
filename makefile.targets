@@ -1,0 +1,6 @@
+.PHONY: bss-ranking
+
+main-build: bss-ranking
+
+bss-ranking: Study_Eth.map
+	powershell.exe -NoProfile -ExecutionPolicy Bypass -File "../tools/bss_rank.ps1" "Study_Eth.map"
