@@ -18,15 +18,18 @@
 #include "netif.h"
 #include "icmp.h"
 #include "udp.h"
+#include "tcp.h"
 
 #include "eth_drv.h"
 
 // イベント
-#define OPEN_EVENT		(0)
-#define BIND_EVENT		(1)
-#define CLOSE_EVENT		(2)
-#define RCV_EVENT		(3)
-#define SND_EVENT		(4)
+#define UDP_OPEN_EVENT		(0)
+#define UDP_BIND_EVENT		(1)
+#define UDP_CLOSE_EVENT		(2)
+#define UDP_RCV_EVENT		(3)
+#define UDP_SND_EVENT		(4)
+#define TCP_OPEN_EVENT		(5)
+#define TCP_CLOSE_EVENT		(6)
 
 // イベント関数
 typedef void (*EVENT_FUNC)(void *data);
@@ -45,6 +48,13 @@ typedef struct {
 	int32_t	desc;
 	char	endp[IP_ENDP_STR_LEN];
 } BIND;
+
+// OPENパラメータ
+typedef struct {
+	int32_t	active;
+	char	local[IP_ENDP_STR_LEN];
+	char	remote[IP_ENDP_STR_LEN];
+} OPEN;
 
 // メールキュー
 typedef struct {
@@ -151,7 +161,7 @@ static osStatus cleanup(void)
 }
 
 // open
-static void open(void *data)
+static void udp_open(void *data)
 {
 	ETH_TEST_CB *this =  get_myself();
 	int32_t desc;
@@ -173,7 +183,7 @@ static void open(void *data)
 }
 
 // bind
-static void bind(void *data)
+static void udp_bind(void *data)
 {
 	ETH_TEST_CB *this =  get_myself();
 	osStatus ercd;
@@ -214,7 +224,7 @@ static void bind(void *data)
 }
 
 // close
-static void close(void *data)
+static void udp_close(void *data)
 {
 	int32_t desc = *((int32_t*)data);
 	
@@ -229,18 +239,17 @@ static void close(void *data)
 }
 
 // close
-static void recv(void *data)
+static void udp_recv(void *data)
 {
 	// nop
 }
 
 // close
-static void send(void *data)
+static void udp_send(void *data)
 {
 	ssize_t n;
 	BIND *par;
 	ip_endp_t remote;
-	char endp[IP_ENDP_STR_LEN];
 	
 	// キャスト
 	par = (BIND*)data;
@@ -253,13 +262,61 @@ static void send(void *data)
 	}
 }
 
+// open
+static void tcp_open(void *data)
+{
+	ETH_TEST_CB *this =  get_myself();
+	int32_t desc;
+	ip_endp_t local, remote;
+	OPEN *par;
+	
+	// デスク数チェック
+	if (this->desc_num >= DESC_NUM) {
+		errorf("desc num over");
+		return;
+	}
+	
+	// キャスト
+	par = (OPEN*)data;
+	
+	// 変換
+	ip_endp_pton(par->local, &local);
+	ip_endp_pton(par->remote, &remote);
+	
+	// オープン
+	desc = tcp_cmd_open(local, remote, par->active);
+	if (desc < 0) {
+		errorf("tcp_cmd_open failure");
+		return;
+	}
+	
+	console_printf("open succsess! desc=%d\n", desc);
+}
+
+// close
+static void tcp_close(void *data)
+{
+	int32_t desc = *((int32_t*)data);
+	
+	// クローズ
+	desc = tcp_cmd_close(desc);
+	if (desc < 0) {
+		errorf("udp_cmd_close failure");
+		return;
+	}
+	
+	console_printf("close succsess! desc=%d\n", desc);
+}
+
 // イベント処理
 static const EVENT_FUNC event_func[] = {
-	open,		// OPEN_EVENT
-	bind,		// BIND_EVENT
-	close,		// CLOSE_EVENT
-	recv,		// RCV_EVENT
-	send,		// SND_EVENT
+	udp_open,		// UDP_OPEN_EVENT
+	udp_bind,		// UDP_BIND_EVENT
+	udp_close,		// UDP_CLOSE_EVENT
+	udp_recv,		// UDP_RCV_EVENT
+	udp_send,		// UDP_SND_EVENT
+	tcp_open,		// TCP_OPEN_EVENT
+	tcp_close,		// TCP_CLOSE_EVENT
 };
 
 // テスト用タスク
@@ -323,7 +380,7 @@ static void eth_test_cmd_udp_open(int argc, char *argv[])
 	}
 	
 	// 設定
-	queue->event = OPEN_EVENT;
+	queue->event = UDP_OPEN_EVENT;
 	
 	// メッセージ送信
 	osMailPut(this->MailHandle, queue);
@@ -352,7 +409,7 @@ static void eth_test_cmd_udp_bind(int argc, char *argv[])
 	}
 	
 	// 設定
-	queue->event = BIND_EVENT;
+	queue->event = UDP_BIND_EVENT;
 	bind = (BIND*)queue->data;
 	bind->desc = atoi(argv[1]);
 	memcpy(bind->endp, argv[2], sizeof(bind->endp));
@@ -382,7 +439,7 @@ static void eth_test_cmd_udp_close(int argc, char *argv[])
 	}
 	
 	// 設定
-	queue->event = CLOSE_EVENT;
+	queue->event = UDP_CLOSE_EVENT;
 	queue->data[0] = atoi(argv[1]);
 	
 	// メッセージ送信
@@ -412,10 +469,72 @@ static void eth_test_cmd_udp_send(int argc, char *argv[])
 	}
 	
 	// 設定
-	queue->event = SND_EVENT;
+	queue->event = UDP_SND_EVENT;
 	bind = (BIND*)queue->data;
 	bind->desc = atoi(argv[1]);
 	memcpy(bind->endp, argv[2], sizeof(bind->endp));
+	
+	// メッセージ送信
+	osMailPut(this->MailHandle, queue);
+	
+	return;
+}
+
+// コマンド
+static void eth_test_cmd_tcp_open(int argc, char *argv[])
+{
+	ETH_TEST_CB *this =  get_myself();
+	MAILQUEUE *queue;
+	OPEN *open;
+	
+	// 引数チェック
+	if (argc < 4) {
+		console_printf("%s <active> <localip:port> <remoteip:port>\n", argv[0]);
+		return;
+	}
+	
+	// バッファ取得
+	queue = (MAILQUEUE*)osMailAlloc(this->MailHandle, 0);
+	if (queue == NULL) {
+		errorf("osMailAlloc() failure");
+		return;
+	}
+	
+	// 設定
+	queue->event = TCP_OPEN_EVENT;
+	open = (OPEN*)queue->data;
+	open->active = atoi(argv[1]);
+	memcpy(open->local, argv[2], sizeof(open->local));
+	memcpy(open->remote, argv[3], sizeof(open->remote));
+	
+	// メッセージ送信
+	osMailPut(this->MailHandle, queue);
+	
+	return;
+}
+
+// クローズ
+static void eth_test_cmd_tcp_close(int argc, char *argv[])
+{
+	ETH_TEST_CB *this =  get_myself();
+	MAILQUEUE *queue;
+	
+	// 引数チェック
+	if (argc < 2) {
+		console_printf("%s <desc> <ip:port>\n");
+		return;
+	}
+	
+	// バッファ取得
+	queue = (MAILQUEUE*)osMailAlloc(this->MailHandle, 0);
+	if (queue == NULL) {
+		errorf("osMailAlloc() failure");
+		return;
+	}
+	
+	// 設定
+	queue->event = TCP_CLOSE_EVENT;
+	queue->data[0] = atoi(argv[1]);
 	
 	// メッセージ送信
 	osMailPut(this->MailHandle, queue);
@@ -440,6 +559,12 @@ void eth_test_set_cmd(void)
 	console_set_command(&cmd);
 	cmd.input = "eth_udp_send";
 	cmd.func = eth_test_cmd_udp_send;
+	console_set_command(&cmd);
+	cmd.input = "eth_tcp_open";
+	cmd.func = eth_test_cmd_tcp_open;
+	console_set_command(&cmd);
+	cmd.input = "eth_tcp_close";
+	cmd.func = eth_test_cmd_tcp_close;
 	console_set_command(&cmd);
 }
 

@@ -55,6 +55,7 @@ Core/Src/app/eth_test.o: ../Core/Src/app/eth_test.c \
  C:/git/Study_eth/Study_Eth/Core/Src/middle/microps/netif.h \
  C:/git/Study_eth/Study_Eth/Core/Src/middle/microps/icmp.h \
  C:/git/Study_eth/Study_Eth/Core/Src/middle/microps/udp.h \
+ C:/git/Study_eth/Study_Eth/Core/Src/middle/microps/tcp.h \
  C:/git/Study_eth/Study_Eth/Core/Src/drv/eth_drv.h \
  C:/git/Study_eth/Study_Eth/Core/Src/peri/eth.h
 ../Drivers/CMSIS/Device/ST/STM32F7xx/Include/stm32f7xx.h:
@@ -113,5 +114,6 @@ C:/git/Study_eth/Study_Eth/Core/Src/middle/microps/loopback.h:
 C:/git/Study_eth/Study_Eth/Core/Src/middle/microps/netif.h:
 C:/git/Study_eth/Study_Eth/Core/Src/middle/microps/icmp.h:
 C:/git/Study_eth/Study_Eth/Core/Src/middle/microps/udp.h:
+C:/git/Study_eth/Study_Eth/Core/Src/middle/microps/tcp.h:
 C:/git/Study_eth/Study_Eth/Core/Src/drv/eth_drv.h:
 C:/git/Study_eth/Study_Eth/Core/Src/peri/eth.h:

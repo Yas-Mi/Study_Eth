@@ -5,8 +5,9 @@
 ../Core/Src/util/util.c:90:10:hton32	1
 ../Core/Src/util/util.c:105:10:ntoh32	1
 ../Core/Src/util/util.c:120:10:rondom16	2
-../Core/Src/util/util.c:133:6:queue_init	1
-../Core/Src/util/util.c:142:22:queue_push	5
-../Core/Src/util/util.c:170:8:queue_pop	4
-../Core/Src/util/util.c:192:8:queue_peek	3
-../Core/Src/util/util.c:201:6:queue_foreach	4
+../Core/Src/util/util.c:133:10:rondom32	2
+../Core/Src/util/util.c:146:6:queue_init	1
+../Core/Src/util/util.c:155:22:queue_push	5
+../Core/Src/util/util.c:183:8:queue_pop	4
+../Core/Src/util/util.c:205:8:queue_peek	3
+../Core/Src/util/util.c:214:6:queue_foreach	4

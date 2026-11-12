@@ -35,6 +35,9 @@
 #define TCP_FLG_URG				(0x20)		// 緊急ポインタが有効であることを示す
 #define TCP_FLG_ISSET(x, y)		((x & 0x3F) & (y) ? 1 : 0)
 
+struct tcp_pcb;
+static int32_t tcp_pcb_desc(struct tcp_pcb *pcb);
+static char * tcp_state_ntoa(int32_t state);
 #define TCP_STATE_NONE			(0)		// 状態なし
 #define TCP_STATE_CLOSED		(1)		// 接続なし。TCP の開始点・終了点。
 #define TCP_STATE_LISTEN		(2)		// サーバが接続要求（SYN）を待っている状態。
@@ -47,8 +50,20 @@
 #define TCP_STATE_CLOSING		(9)		// 両端が同時に FIN を送った場合の特殊状態（同時クローズ）。
 #define TCP_STATE_LAST_ACK		(10)	// 受動クローズ側が FIN を送信し、ACK を待っている状態。
 #define TCP_STATE_TIME_WAIT		(11)	// 能動クローズ側が最後の ACK を送った後、2×MSL 待機する状態。
+#define TCP_STATE_CHANGE(x, y)			\
+do {									\
+	TCP_DBG_PRINT("desc=%d, %s=>%s",	\
+		tcp_pcb_desc((x)),				\
+		tcp_state_ntoa((x)->state),		\
+		tcp_state_ntoa((y)));			\
+	(x)->state = (y);					\
+} while (0);
 
 #define TCP_PCB_SIZE			(4)
+
+#define TCP_EVENT_INTERRUPT		(0x00000001)
+#define TCP_EVENT_TEMP			(0x00000002)
+#define TCP_EVENT_ALL_EVENT		(TCP_EVENT_INTERRUPT|TCP_EVENT_TEMP)
 
 // 疑似ヘッダ
 struct pseudo_hdr {
@@ -131,6 +146,39 @@ static char * tcp_flg_ntoa(uint8_t flg)
 		TCP_FLG_ISSET(flg, TCP_FLG_URG) ? 'T' : '-');
 	
 	return str;
+}
+
+// 制御フラグの視覚化
+static char * tcp_state_ntoa(int32_t state)
+{
+	switch (state) {
+	case TCP_STATE_NONE:
+		return "NONE";
+	case TCP_STATE_CLOSED:
+		return "CLOSED";
+	case TCP_STATE_LISTEN:
+		return "LISTEN";
+	case TCP_STATE_SYN_SENT:
+		return "SYN_SENT";
+	case TCP_STATE_SYN_RECEIVED:
+		return "SYN_RECEIVED";
+	case TCP_STATE_ESTABLISHED:
+		return "ESTABLISHED";
+	case TCP_STATE_FIN_WAIT1:
+		return "FIN_WAIT1";
+	case TCP_STATE_FIN_WAIT2:
+		return "FIN_WAIT2";
+	case TCP_STATE_CLOSE_WAIT:
+		return "CLOSE_WAIT";
+	case TCP_STATE_CLOSING:
+		return "CLOSING";
+	case TCP_STATE_LAST_ACK:
+		return "LAST_ACK";
+	case TCP_STATE_TIME_WAIT:
+		return "TIME_WAIT";
+	default:
+		return "UNKNOWN";
+	}
 }
 
 static char * tcp_opt_ntoa(uint8_t opt)
@@ -243,7 +291,17 @@ static struct tcp_pcb * tcp_pcb_select(ip_endp_t key1, ip_endp_t key2)
 
 void TcpPcb(void const * argument)
 {
+	osEvent evt;
+	struct tcp_pcb *pcb = (struct tcp_pcb *)argument;
 	
+	while (1) {
+		// イベント待機
+		evt = osSignalWait(TCP_EVENT_TEMP, osWaitForever);
+		// シグナル受信
+	    if (evt.status == osEventSignal) {
+	       TCP_DBG_PRINT("unko!");
+	    }
+	}
 }
 
 static struct tcp_pcb * tcp_pcb_alloc(void)
@@ -255,8 +313,6 @@ static struct tcp_pcb * tcp_pcb_alloc(void)
 	for (pcb = this->pcbs; pcb < tailof(this->pcbs); pcb++) {
 		if (pcb->state == TCP_STATE_NONE) {
 			pcb->state = TCP_STATE_CLOSED;
-			osThreadDef(TcpPcb, TcpPcb, osPriorityLow, 0, 512);
-			pcb->thread_id = osThreadCreate(osThread(TcpPcb), NULL);
 			return pcb;
 		}
 	}
@@ -291,7 +347,7 @@ static ssize_t tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint1
 	hdr->src = local.port;
 	hdr->dst = remote.port;
 	hdr->seq = hton32(seq);
-	hdr->ack = hton32(seq);
+	hdr->ack = hton32(ack);
 	hlen = sizeof(*hdr);
 	hdr->off = (hlen >> 2) << 4;
 	hdr->flg = flg;
@@ -313,6 +369,20 @@ static ssize_t tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint1
 		return -1;
 	}
 	return len;
+}
+
+static ssize_t tcp_output(struct tcp_pcb *pcb, uint8_t flg, const uint8_t *data, size_t len)
+{
+	uint32_t seq;
+	
+	seq = pcb->snd.nxt;
+	if (TCP_FLG_ISSET(flg, TCP_FLG_SYN)) {
+		seq = pcb->iss;
+	}
+	if (TCP_FLG_ISSET(flg, TCP_FLG_SYN | TCP_FLG_FIN) || len) {
+		// to do
+	}
+	return tcp_output_segment(seq, pcb->rcv.nxt, flg, pcb->rcv.wnd, data, len, pcb->local, pcb->remote);
 }
 
 // 到着セグメントの処理
@@ -340,6 +410,70 @@ static void tcp_segment_arrives(struct seg_info *seg, uint8_t flags, const uint8
 			tcp_output_segment(seg->ack, 0, TCP_FLG_RST, 0, NULL, 0, local, remote);
 		}
 		return;
+	}
+	TCP_DBG_PRINT("desc=%d, state=%s", tcp_pcb_desc(pcb), tcp_opt_ntoa(pcb->state));
+	switch (pcb->state) {
+		// 接続要求を待っている状態
+		case TCP_STATE_LISTEN:
+			// 1st check for an RST
+			// 偶然、同じポート番号を使用していた過去のコネクションに対するセグメントが遅れてくることがあるみたい
+			if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
+				return;
+			}
+			// 2nd check for an ACK
+			if (TCP_FLG_ISSET(flags, TCP_FLG_ACK)) {
+				// 相手が次に期待しているシーケンス番号をackとして送る
+				tcp_output_segment(seg->ack, 0, TCP_FLG_RST, 0, NULL, 0, local, remote);
+				return;
+			}
+			// 3rd check for an SYN
+			if (TCP_FLG_ISSET(flags, TCP_FLG_SYN)) {
+				// ignore : security / compartment check
+				// 制御ブロックのエンドポイントが不確定の状態もあり得るので。送信元で上書き
+				pcb->local = local;
+				pcb->remote = remote;	
+				// Windowサイズの設定
+				pcb->rcv.wnd = sizeof(pcb->buf);
+				// 次に期待するシーケンス番号は受信シーケンス番号 + 1
+				pcb->rcv.nxt = seg->seq + 1;
+				// リモート側の初期シーケンス番号を覚えておく
+				pcb->irs = seg->seq;
+				// 初期シーケンスを採番
+				pcb->iss = rondom32();
+				// セグメントの送信 syn + ack
+				tcp_output(pcb, TCP_FLG_SYN | TCP_FLG_ACK, NULL, 0);
+				// 次の送信シーケンス番号の設定
+				// syncを1byte送るので1byte
+				pcb->snd.nxt = pcb->iss + 1;
+				// 確認応答が得られていない未確認のシーケンス番号を設定
+				pcb->snd.una = pcb->iss;
+				// 状態遷移
+				TCP_STATE_CHANGE(pcb, TCP_STATE_SYN_RECEIVED);
+				return;
+			}
+			// 4th other text or contorol
+	}
+	// 5th check the ACK field
+	// CLOSEDとLISTEN以外の状態では、SYNフラグを含む何かしらのデータを送信しており、
+	// 到着セグメントには必ず確認応答番号が含まれているはず。したがって、コントロールビットにACKフラグがない場合は、破棄して終了
+	if (!TCP_FLG_ISSET(flags, TCP_FLG_ACK)) {
+		// drop segment
+		return;
+	}
+	switch (pcb->state) {
+		case TCP_STATE_SYN_RECEIVED:
+			// 未確認のシーケンス番号以上 かつ 次に送信する予定のシーケンス番号以下である
+			if ((pcb->snd.una <= seg->ack) && (seg->ack <= pcb->snd.nxt)) {
+				// コネクション確立
+				TCP_STATE_CHANGE(pcb, TCP_STATE_ESTABLISHED);
+				// タスク起床
+				osSignalSet(pcb->thread_id, TCP_EVENT_TEMP);
+			// 不正な確認応答
+			} else {
+				tcp_output_segment(seg->ack, 0, TCP_FLG_RST, 0, NULL, 0, local, remote);
+				return;
+			}
+			break;
 	}
 	// later
 }
@@ -428,5 +562,124 @@ osStatus tcp_init(void)
 		TCP_ERR_PRINT("ip_protocol_register erorr");
 		return osErrorResource;
 	}
+	return osOK;
+}
+
+//オープン
+int32_t tcp_cmd_open(ip_endp_t local, ip_endp_t remote, int32_t active)
+{
+	TCP_CB *this = get_myself();
+	struct tcp_pcb *pcb;
+	char ep1[IP_ENDP_STR_LEN];
+	char ep2[IP_ENDP_STR_LEN];
+	int32_t state, desc;
+	struct ip_iface *iface;
+	osEvent evt;
+	
+	osMutexWait(this->lock, osWaitForever);
+	// 制御ブロックの割り当て
+	pcb = tcp_pcb_alloc();
+	if (pcb == NULL) {
+		TCP_ERR_PRINT("tcp_pcb_alloc() failure");
+		osMutexRelease(this->lock);
+		return osErrorResource;
+	}
+	TCP_DBG_PRINT("mode=%s, local=%s, remote=%s", active ? "active" : "passive", ip_endp_ntop(local, ep1, sizeof(ep1)), ip_endp_ntop(remote, ep2, sizeof(ep2)));
+	// アクティブオープン
+	if (active) {
+		TCP_ERR_PRINT("active open does not implement");
+		tcp_pcb_release(pcb);
+		osMutexRelease(this->lock);
+		return osErrorResource;
+	// パッシブオープン
+	} else {
+		// 指定したエンドポイントが使えるかどうかをチェック
+		if (tcp_pcb_select(local, remote)) {
+			TCP_ERR_PRINT("address already in use");
+			tcp_pcb_release(pcb);
+			osMutexRelease(this->lock);
+			return osErrorResource;
+		}
+		// エンドポイントの設定
+		pcb->local = local;
+		pcb->remote = remote;
+		// 状態遷移
+		TCP_STATE_CHANGE(pcb, TCP_STATE_LISTEN);
+		TCP_DBG_PRINT("waiting for connection...");
+	}
+AGAIN:
+	// 自タスクのIDを取得
+	pcb->thread_id = osThreadGetId();
+	if (pcb->thread_id == NULL) {
+		tcp_pcb_release(pcb);
+		osMutexRelease(this->lock);
+		return osErrorResource;
+	}
+	// waiting for state changed
+	state = pcb->state;
+	while (pcb->state == state) {
+		// イベント待機
+		evt = osSignalWait(TCP_EVENT_ALL_EVENT, osWaitForever);
+		// シグナル受信
+		if ((evt.status != osEventSignal) || (evt.value.signals & TCP_EVENT_INTERRUPT)) {
+			TCP_DBG_PRINT("interrupted");
+			TCP_STATE_CHANGE(pcb, TCP_STATE_CLOSED);
+			tcp_pcb_release(pcb);
+			osMutexRelease(this->lock);
+			return osErrorResource;
+		} else if (evt.value.signals & TCP_EVENT_TEMP) {
+			
+		} else {
+			// ないはず
+		}
+	}
+	// 確立していない
+	if (pcb->state != TCP_STATE_ESTABLISHED) {
+		// SYN_RECEIVED状態の場合は、コネクション確立の最中なのでもう一回状態変化を待つ
+		if (pcb->state == TCP_STATE_SYN_RECEIVED) {
+			goto AGAIN;
+		}
+		// SYN_RECEIVED状態以外はエラー
+		TCP_ERR_PRINT("open error: state%s (%d)", tcp_state_ntoa(pcb->state), pcb->state);
+		TCP_STATE_CHANGE(pcb, TCP_STATE_CLOSED);
+		tcp_pcb_release(pcb);
+		osMutexRelease(this->lock);
+		return osErrorResource;
+	}
+	// ipインタフェースを取得
+	iface = ip_route_get_iface(pcb->remote.addr);
+	if (iface == NULL) {
+		TCP_ERR_PRINT("iface not found");
+		osMutexRelease(this->lock);
+		return osErrorResource;
+	}
+	// MSSの設定 (*)本来は接続要求のセグメントにMSSオプションを設定して双方が通知したMSSのうち小さいほうを採用するが、今回はMTUを設定
+	pcb->mss = NET_IFACE(iface)->dev->mtu - (IP_HDR_SIZE_MIN + sizeof(struct tcp_hdr));
+	desc = tcp_pcb_desc(pcb);
+	TCP_DBG_PRINT("success. local=%sm remote=%s", ip_endp_ntop(pcb->local, ep1, sizeof(ep1)), ip_endp_ntop(pcb->local, ep2, sizeof(ep2)));
+	osMutexRelease(this->lock);
+	return desc;
+}
+
+// クローズ
+osStatus tcp_cmd_close(int32_t desc)
+{
+	TCP_CB *this = get_myself();
+	struct tcp_pcb *pcb;
+	
+	osMutexWait(this->lock, osWaitForever);
+	pcb = tcp_pcb_get(desc);
+	if (pcb == NULL) {
+		TCP_ERR_PRINT("pcb not found, desc=%d", desc);
+		osMutexRelease(this->lock);
+		return osErrorResource;
+	}
+	TCP_DBG_PRINT("desc=%d", desc);
+	// リセットセグメントの送信
+	tcp_output(pcb, TCP_FLG_RST, NULL, 0);
+	TCP_STATE_CHANGE(pcb, TCP_STATE_CLOSED);
+	// 制御ブロックの解放
+	tcp_pcb_release(pcb);
+	osMutexRelease(this->lock);
 	return osOK;
 }

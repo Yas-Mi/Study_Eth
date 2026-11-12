@@ -130,6 +130,19 @@ uint16_t rondom16(void)
 	return (uint16_t)rondom;
 }
 
+uint32_t rondom32(void)
+{
+	UTIL_CB *this = get_myself();
+	uint32_t rondom;
+	
+	// 乱数取得
+	if (HAL_RNG_GenerateRandomNumber(&(this->hrng), &rondom) != HAL_OK) {
+		rondom = 0xFFFF;
+	}
+	
+	return rondom;
+}
+
 void queue_init(struct queue *queue)
 {
 	UTIL_CB *this = get_myself();

@@ -66,6 +66,7 @@ extern uint32_t ntoh32(uint32_t h);
 
 extern osStatus util_init(void);
 extern uint16_t rondom16(void);
+extern uint32_t rondom32(void);
 
 extern void queue_init(struct queue *queue);
 extern struct queue_entry * queue_push(struct queue *queue, void *data);
